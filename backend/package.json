@@ -1,0 +1,12 @@
+{
+  "name": "scrubprep-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scrub Prep Back4App Cloud Code — server-side OpenAI integration for OR Prep, Pimp Me, and Rapid Fire.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
