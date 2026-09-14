@@ -10,10 +10,10 @@ final class HomeViewModel: ObservableObject {
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
 
-    // Seeded default so the UI has something to show before (or if) the server-side
-    // catalog fetch below completes — see backend/cloud/scrubPrep/caseTypes.js.
-    private static let fallbackChips = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
-    @Published var exampleChips = HomeViewModel.fallbackChips
+    // No specialty is selected on first launch — the case-entry card shows no quick-pick
+    // chips until the user picks one from the specialty row (spec: specialty selection is
+    // the first step, not a default).
+    @Published var exampleChips: [String] = []
 
     // Shown instantly from SpecialtyCache on launch, then silently refreshed from the
     // network — see backend/cloud/scrubPrep/specialties.js.
@@ -21,7 +21,6 @@ final class HomeViewModel: ObservableObject {
     @Published var selectedSpecialty: Specialty?
 
     private var allCaseTypes: [CaseType] = []
-    private var featuredChips = HomeViewModel.fallbackChips
 
     let loadingMessages = [
         "Reviewing the operation",
@@ -53,18 +52,16 @@ final class HomeViewModel: ObservableObject {
         refreshSpecialties()
     }
 
-    /// Refreshes the Home screen quick-picks from the server-side catalog. Failure is
-    /// silent — the hardcoded fallback chips above stay in place (spec: never let a
-    /// decorative fetch block or error out the primary "prepare a case" flow).
+    /// Fetches the full case type catalog used to filter quick-picks once a specialty is
+    /// selected. Failure is silent — the specialty row still works for browsing, it just
+    /// won't be able to show matching quick-picks (spec: never let a decorative fetch
+    /// block or error out the primary "prepare a case" flow).
     private func loadCaseTypes() {
         Task {
             guard let caseTypes = try? await service.listCaseTypes() else { return }
             allCaseTypes = caseTypes
-            let featured = caseTypes.filter(\.featured).map(\.name)
-            guard !featured.isEmpty else { return }
-            featuredChips = featured
-            if selectedSpecialty == nil {
-                exampleChips = featured
+            if let selected = selectedSpecialty {
+                exampleChips = matchingChips(for: selected)
             }
         }
     }
@@ -82,17 +79,20 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    /// Tapping the already-selected specialty clears the filter back to the global
-    /// featured chips (spec: tap-to-toggle).
+    /// Tapping the already-selected specialty clears back to the no-selection state (no
+    /// quick-pick chips) rather than falling back to some default specialty.
     func selectSpecialty(_ specialty: Specialty) {
         if selectedSpecialty == specialty {
             selectedSpecialty = nil
-            exampleChips = featuredChips
+            exampleChips = []
             return
         }
         selectedSpecialty = specialty
-        let matches = allCaseTypes.filter { $0.specialty == specialty }.map(\.name)
-        exampleChips = matches.isEmpty ? featuredChips : matches
+        exampleChips = matchingChips(for: specialty)
+    }
+
+    private func matchingChips(for specialty: Specialty) -> [String] {
+        allCaseTypes.filter { $0.specialty == specialty }.map(\.name)
     }
 
     func prepareCase() {
