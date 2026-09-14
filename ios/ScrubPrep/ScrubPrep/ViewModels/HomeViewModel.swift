@@ -12,7 +12,16 @@ final class HomeViewModel: ObservableObject {
 
     // Seeded default so the UI has something to show before (or if) the server-side
     // catalog fetch below completes — see backend/cloud/scrubPrep/caseTypes.js.
-    @Published var exampleChips = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
+    private static let fallbackChips = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
+    @Published var exampleChips = HomeViewModel.fallbackChips
+
+    // Shown instantly from SpecialtyCache on launch, then silently refreshed from the
+    // network — see backend/cloud/scrubPrep/specialties.js.
+    @Published var specialties: [Specialty] = SpecialtyCache.load()
+    @Published var selectedSpecialty: Specialty?
+
+    private var allCaseTypes: [CaseType] = []
+    private var featuredChips = HomeViewModel.fallbackChips
 
     let loadingMessages = [
         "Reviewing the operation",
@@ -41,6 +50,7 @@ final class HomeViewModel: ObservableObject {
         self.service = service ?? ScrubPrepServiceFactory.make()
         self.historyStore = historyStore
         loadCaseTypes()
+        refreshSpecialties()
     }
 
     /// Refreshes the Home screen quick-picks from the server-side catalog. Failure is
@@ -49,11 +59,40 @@ final class HomeViewModel: ObservableObject {
     private func loadCaseTypes() {
         Task {
             guard let caseTypes = try? await service.listCaseTypes() else { return }
+            allCaseTypes = caseTypes
             let featured = caseTypes.filter(\.featured).map(\.name)
-            if !featured.isEmpty {
+            guard !featured.isEmpty else { return }
+            featuredChips = featured
+            if selectedSpecialty == nil {
                 exampleChips = featured
             }
         }
+    }
+
+    /// Shows the cached specialty list instantly (if any), then always refreshes from the
+    /// network in the background so a backend-side catalog change eventually reaches the
+    /// UI without the user needing to reinstall or manually refresh.
+    private func refreshSpecialties() {
+        Task {
+            guard let fetched = try? await service.listSpecialties(), !fetched.isEmpty else { return }
+            if fetched != specialties {
+                specialties = fetched
+                SpecialtyCache.save(fetched)
+            }
+        }
+    }
+
+    /// Tapping the already-selected specialty clears the filter back to the global
+    /// featured chips (spec: tap-to-toggle).
+    func selectSpecialty(_ specialty: Specialty) {
+        if selectedSpecialty == specialty {
+            selectedSpecialty = nil
+            exampleChips = featuredChips
+            return
+        }
+        selectedSpecialty = specialty
+        let matches = allCaseTypes.filter { $0.specialty == specialty }.map(\.name)
+        exampleChips = matches.isEmpty ? featuredChips : matches
     }
 
     func prepareCase() {

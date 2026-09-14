@@ -1,36 +1,41 @@
 // Case type catalog, stored server-side as a `CaseType` Parse class so the list can be
-// curated/expanded without an app release. Each row: { name, specialty, sortOrder, featured }.
-
-const SPECIALTIES = [
-  { key: "general_surgery", label: "General Surgery" },
-  { key: "cardiothoracic", label: "Cardiothoracic" },
-  { key: "ent", label: "ENT" },
-  { key: "urology", label: "Urology" },
-  { key: "orthopedics", label: "Orthopedics" },
-];
+// curated/expanded without an app release. Each row: { name, specialty (Pointer<Specialty>),
+// sortOrder, featured }.
 
 async function fetchCaseTypeObjects() {
   const query = new Parse.Query("CaseType");
-  query.ascending("specialty");
-  query.addAscending("sortOrder");
+  query.include("specialty");
+  query.ascending("sortOrder");
   query.addAscending("name");
   query.limit(500);
   return query.find({ useMasterKey: true });
 }
 
 /**
- * Returns the case type catalog as plain objects, sorted by specialty then sortOrder/name.
+ * Returns the case type catalog as plain objects, grouped by specialty (specialty's own
+ * sortOrder) then by each case type's sortOrder/name within that specialty.
  *
  * @param {{ fetchCaseTypeObjects?: typeof fetchCaseTypeObjects }} [deps]
  */
 async function listCaseTypes(deps = {}) {
   const fetch = deps.fetchCaseTypeObjects || fetchCaseTypeObjects;
   const objects = await fetch();
-  return objects.map((obj) => ({
-    name: obj.get("name"),
-    specialty: obj.get("specialty"),
-    featured: !!obj.get("featured"),
-  }));
+
+  const withSortKey = objects.map((obj) => {
+    const specialtyObj = obj.get("specialty");
+    return {
+      item: {
+        name: obj.get("name"),
+        specialty: specialtyObj ? { id: specialtyObj.id, name: specialtyObj.get("name") } : null,
+        featured: !!obj.get("featured"),
+      },
+      specialtySortOrder: specialtyObj ? specialtyObj.get("sortOrder") ?? 0 : Number.MAX_SAFE_INTEGER,
+    };
+  });
+
+  // Array.prototype.sort is stable, so ties keep the query's own sortOrder/name ordering.
+  withSortKey.sort((a, b) => a.specialtySortOrder - b.specialtySortOrder);
+  return withSortKey.map(({ item }) => item);
 }
 
-module.exports = { SPECIALTIES, listCaseTypes, fetchCaseTypeObjects };
+module.exports = { listCaseTypes, fetchCaseTypeObjects };

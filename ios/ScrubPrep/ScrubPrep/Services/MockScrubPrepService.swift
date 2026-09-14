@@ -99,25 +99,39 @@ final class MockScrubPrepService: ScrubPrepServicing {
         return RapidFireResult(questions: padded)
     }
 
-    // Mirrors the seed data in backend/scripts/seed-case-types.js so mock mode looks the
-    // same as talking to the real catalog.
+    // Mirrors the seed data in backend/scripts/seed-specialties.js / seed-case-types.js so
+    // mock mode looks the same as talking to the real catalog.
+    private static let mockSpecialties: [Specialty] = [
+        Specialty(id: "mock_general_surgery", name: "General Surgery"),
+        Specialty(id: "mock_cardiac_surgery", name: "Cardiac Surgery"),
+        Specialty(id: "mock_thoracic_surgery", name: "Thoracic Surgery"),
+        Specialty(id: "mock_ent", name: "ENT"),
+        Specialty(id: "mock_urology", name: "Urology"),
+        Specialty(id: "mock_orthopedics", name: "Orthopedics"),
+    ]
+
     private static let mockCaseTypes: [CaseType] = [
-        CaseType(name: "Lap Chole", specialty: "general_surgery", featured: true),
-        CaseType(name: "Appendectomy", specialty: "general_surgery", featured: true),
-        CaseType(name: "Inguinal Hernia", specialty: "general_surgery", featured: true),
-        CaseType(name: "Colectomy", specialty: "general_surgery", featured: true),
-        CaseType(name: "CABG", specialty: "cardiothoracic", featured: false),
-        CaseType(name: "Tonsillectomy", specialty: "ent", featured: false),
-        CaseType(name: "Septoplasty", specialty: "ent", featured: false),
-        CaseType(name: "TURP", specialty: "urology", featured: false),
-        CaseType(name: "Nephrectomy", specialty: "urology", featured: false),
-        CaseType(name: "Total Knee Arthroplasty", specialty: "orthopedics", featured: false),
-        CaseType(name: "ACL Reconstruction", specialty: "orthopedics", featured: false),
+        CaseType(name: "Lap Chole", specialty: mockSpecialties[0], featured: true),
+        CaseType(name: "Appendectomy", specialty: mockSpecialties[0], featured: true),
+        CaseType(name: "Inguinal Hernia", specialty: mockSpecialties[0], featured: true),
+        CaseType(name: "Colectomy", specialty: mockSpecialties[0], featured: true),
+        CaseType(name: "CABG", specialty: mockSpecialties[1], featured: false),
+        CaseType(name: "Tonsillectomy", specialty: mockSpecialties[3], featured: false),
+        CaseType(name: "Septoplasty", specialty: mockSpecialties[3], featured: false),
+        CaseType(name: "TURP", specialty: mockSpecialties[4], featured: false),
+        CaseType(name: "Nephrectomy", specialty: mockSpecialties[4], featured: false),
+        CaseType(name: "Total Knee Arthroplasty", specialty: mockSpecialties[5], featured: false),
+        CaseType(name: "ACL Reconstruction", specialty: mockSpecialties[5], featured: false),
     ]
 
     func listCaseTypes() async throws -> [CaseType] {
         try await Task.sleep(nanoseconds: 200_000_000)
         return MockScrubPrepService.mockCaseTypes
+    }
+
+    func listSpecialties() async throws -> [Specialty] {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return MockScrubPrepService.mockSpecialties
     }
 
     private static func questionTarget(for difficulty: PimpDifficulty) -> Int {

@@ -8,6 +8,7 @@ protocol ScrubPrepServicing {
     func answerPimpQuestion(sessionId: String, answer: String) async throws -> PimpAnswerResult
     func generateRapidFire(caseDescription: String, prep: ORPrep) async throws -> RapidFireResult
     func listCaseTypes() async throws -> [CaseType]
+    func listSpecialties() async throws -> [Specialty]
 }
 
 /// Errors surfaced to the UI. Kept generic and friendly per spec §20 — never show raw

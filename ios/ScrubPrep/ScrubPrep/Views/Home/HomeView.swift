@@ -21,6 +21,14 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    if !viewModel.specialties.isEmpty {
+                        SpecialtyRow(
+                            specialties: viewModel.specialties,
+                            selectedSpecialty: viewModel.selectedSpecialty,
+                            onSelect: viewModel.selectSpecialty
+                        )
+                    }
+
                     header
 
                     CaseEntryCard(
@@ -112,14 +120,9 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Be ready for surgery.")
-                .font(.title3.weight(.medium))
-                .foregroundStyle(.secondary)
-            Text("Created by a former Stanford surgery professor")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
+        Text("Be ready for surgery.")
+            .font(.title3.weight(.medium))
+            .foregroundStyle(.secondary)
     }
 
     private var recentCases: some View {

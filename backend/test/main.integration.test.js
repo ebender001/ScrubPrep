@@ -9,6 +9,7 @@ const https = require("node:https");
 
 let idCounter = 0;
 const store = {};
+let specialtiesByName = {};
 
 class FakeParseError extends Error {
   constructor(code, message) {
@@ -59,6 +60,11 @@ class FakeParseQuery {
     return this;
   }
   limit() {
+    return this;
+  }
+  include() {
+    // No-op: fake objects always hold their full attributes (including any object set as a
+    // pointer value), so there's no lazy-pointer behavior to simulate here.
     return this;
   }
   async find() {
@@ -207,12 +213,33 @@ test("generateRapidFire returns exactly 5 questions via the cloud function", asy
   assert.equal(result.questions.length, 5);
 });
 
-test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name", async () => {
+test("listSpecialties returns catalog rows sorted by sortOrder, name", async () => {
+  store.Specialty = {};
+  const seed = [
+    { name: "ENT", sortOrder: 4 },
+    { name: "General Surgery", sortOrder: 1 },
+    { name: "Cardiac Surgery", sortOrder: 2 },
+  ];
+  for (const attrs of seed) {
+    const obj = new FakeParseObject("Specialty");
+    for (const [key, value] of Object.entries(attrs)) obj.set(key, value);
+    await obj.save();
+    specialtiesByName[attrs.name] = obj;
+  }
+
+  const result = await registry.listSpecialties({ params: {} });
+  assert.deepEqual(
+    result.specialties.map((s) => s.name),
+    ["General Surgery", "Cardiac Surgery", "ENT"]
+  );
+});
+
+test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name, with a populated specialty pointer", async () => {
   store.CaseType = {};
   const seed = [
-    { name: "Appendectomy", specialty: "general_surgery", sortOrder: 2, featured: true },
-    { name: "Lap Chole", specialty: "general_surgery", sortOrder: 1, featured: true },
-    { name: "CABG", specialty: "cardiothoracic", sortOrder: 1, featured: false },
+    { name: "Appendectomy", specialty: specialtiesByName["General Surgery"], sortOrder: 2, featured: true },
+    { name: "Lap Chole", specialty: specialtiesByName["General Surgery"], sortOrder: 1, featured: true },
+    { name: "CABG", specialty: specialtiesByName["Cardiac Surgery"], sortOrder: 1, featured: false },
   ];
   for (const attrs of seed) {
     const obj = new FakeParseObject("CaseType");
@@ -222,9 +249,9 @@ test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name", 
 
   const result = await registry.listCaseTypes({ params: {} });
   assert.deepEqual(result.caseTypes, [
-    { name: "CABG", specialty: "cardiothoracic", featured: false },
-    { name: "Lap Chole", specialty: "general_surgery", featured: true },
-    { name: "Appendectomy", specialty: "general_surgery", featured: true },
+    { name: "Lap Chole", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
+    { name: "Appendectomy", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
+    { name: "CABG", specialty: { id: specialtiesByName["Cardiac Surgery"].id, name: "Cardiac Surgery" }, featured: false },
   ]);
 });
 

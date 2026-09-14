@@ -15,11 +15,14 @@ cloud/
     pimp.js                    Pimp Me session logic (pure — no Parse dependency, unit-testable)
     rapidFire.js                generateRapidFire({ caseDescription, prep })
     caseTypes.js                listCaseTypes() — reads the CaseType catalog Parse class
+    specialties.js              listSpecialties() — reads the Specialty catalog Parse class
 test/                          node:test unit tests (mock the AI client, no network/Parse needed)
 scripts/
+  lib/parseRest.js               shared Parse REST API helper (used by the scripts below)
   try-generate-prep.js          manual smoke test against the real OpenAI API (direct OpenAI call)
   call-cloud-function.js        calls a deployed Cloud Function via the Parse REST API (bypasses `b4a cloud`)
-  seed-case-types.js            idempotently seeds/updates the CaseType catalog via the Parse REST API
+  seed-specialties.js            idempotently seeds/updates the Specialty catalog via the Parse REST API
+  seed-case-types.js            rebuilds the CaseType catalog (specialty as a Pointer) via the Parse REST API
 .parse.project                  Parse CLI project config (safe to commit — no secrets)
 .parse.local                    Parse CLI local config incl. Master Key — gitignored, never commit
 ```
@@ -32,21 +35,25 @@ scripts/
 | `startPimpSession` | `{ caseDescription, prep, difficulty }` | `{ sessionId, question, progress, done }` |
 | `answerPimpQuestion` | `{ sessionId, answer }` | `{ assessment, feedback, teachingPoint, nextQuestion, done, progress }`, or on the last question `{ ..., done: true, summary: { strong, review, twoMinuteReview } }` |
 | `generateRapidFire` | `{ caseDescription, prep }` | `{ questions: [{ question, answer }] }` (exactly 5) |
-| `listCaseTypes` | none | `{ caseTypes: [{ name, specialty, featured }] }`, sorted by specialty then sortOrder/name |
+| `listCaseTypes` | none | `{ caseTypes: [{ name, specialty: { id, name } \| null, featured }] }`, sorted by specialty's sortOrder then the case type's own sortOrder/name |
+| `listSpecialties` | none | `{ specialties: [{ id, name }] }`, sorted by sortOrder/name |
 
 `difficulty` is one of `easy | typical | tough | merciless` (defaults to `typical`). Session length scales with difficulty (5 questions for easy/typical, 6 for tough, 7 for merciless).
 
 Pimp Me session state is stored server-side in a `PimpSession` Parse class (`caseDescription`, `prep`, `difficulty`, `history`, `pendingQuestion`, `status`) so the client only ever needs to hold a `sessionId`.
 
-### Case type catalog
+### Specialty & case type catalog
 
-Case types (e.g. "Lap Chole", "CABG", "Tonsillectomy") live server-side in a `CaseType` Parse class, not hardcoded in the client, so the catalog can grow without an app release. Fields: `name` (String), `specialty` (String — one of the keys in `cloud/scrubPrep/caseTypes.js`'s `SPECIALTIES`: `general_surgery`, `cardiothoracic`, `ent`, `urology`, `orthopedics`), `sortOrder` (Number, for display order within a specialty), `featured` (Boolean, whether it should appear as a Home-screen quick-pick). Seed or update the catalog with:
+Specialties (e.g. "General Surgery", "Cardiac Surgery", "ENT") live in a `Specialty` Parse class: `name` (String, human-readable), `sortOrder` (Number). Case types (e.g. "Lap Chole", "CABG", "Tonsillectomy") live in a `CaseType` Parse class with a **Pointer** to a `Specialty` row (not a raw string), plus `name` (String), `sortOrder` (Number, order within that specialty), and `featured` (Boolean, whether it should appear as a Home-screen quick-pick). Neither is hardcoded in the client, so the catalog can grow without an app release.
+
+Seed or update the catalog with:
 
 ```
-node scripts/seed-case-types.js
+node scripts/seed-specialties.js   # upserts Specialty rows by name — safe to re-run
+node scripts/seed-case-types.js    # rebuilds CaseType rows (also re-runs the specialty seed first)
 ```
 
-This is idempotent (upserts by `name`) — safe to re-run after editing the `CASE_TYPES` list in that script to add new cases or specialties.
+`seed-case-types.js` *deletes and recreates* every `CaseType` row (rather than upserting) because Parse Server locks a field's type to whatever it first saw — the `specialty` column used to be a String, and writing a Pointer into that same column fails until the class schema is rebuilt fresh. `CaseType` is pure seed data (nothing references its objectIds elsewhere), so this is safe; `Specialty` rows are upserted in place instead since their `name` values are meaningful identifiers on their own.
 
 ## Setup
 
@@ -93,6 +100,6 @@ node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Lapar
 ## Notes / TODOs for later phases
 
 - `ScrubCase` (completed OR Prep case history) is not yet a Parse class — v1 case history is expected to live client-side in the iOS app first (spec allows this).
-- `CaseType` catalog rows must currently be seeded/edited via `scripts/seed-case-types.js` or the dashboard's Database Browser — no admin UI or Cloud Function to write them yet (`listCaseTypes` is read-only).
+- `Specialty`/`CaseType` catalog rows must currently be seeded/edited via `scripts/seed-specialties.js` / `scripts/seed-case-types.js` or the dashboard's Database Browser — no admin UI or Cloud Function to write them yet (`listSpecialties`/`listCaseTypes` are read-only).
 - No user accounts/auth yet — `PimpSession` objects are created without an owning user and read/written via the master key from Cloud Code. Add `Parse.User` association + ACLs when accounts are introduced.
 - PHI detection (`schemas.containsLikelyPHI`) is intentionally minimal (a few obvious patterns) per the product spec — not a compliance-grade PHI scrubber.
