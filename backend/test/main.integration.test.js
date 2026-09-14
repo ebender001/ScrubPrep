@@ -1,10 +1,11 @@
 // Integration test for cloud/main.js using an in-memory fake Parse SDK and a
-// stubbed global fetch (so no real Parse Server or OpenAI call is made), to
+// stubbed https.request (so no real Parse Server or OpenAI call is made), to
 // verify the Cloud Function wiring, PimpSession persistence, and the
 // non-final vs. final answerPimpQuestion branches.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
+const https = require("node:https");
 
 let idCounter = 0;
 const store = {};
@@ -77,16 +78,24 @@ global.Parse = {
 
 process.env.OPENAI_API_KEY = "test-key";
 
-// fetch mock: pops the next canned OpenAI-shaped response off a queue.
+// https.request mock: pops the next canned OpenAI-shaped response off a queue.
+// aiClient.js calls `https.request` directly (not global fetch), so we patch
+// the core `https` module in place — it's a singleton across requires.
 const responseQueue = [];
-global.fetch = async () => {
+https.request = (_options, callback) => {
   const payload = responseQueue.shift();
-  if (!payload) throw new Error("no mock response queued");
-  return {
-    ok: true,
-    status: 200,
-    json: async () => ({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+  if (payload === undefined) throw new Error("no mock response queued");
+  const body = JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] });
+  const res = {
+    statusCode: 200,
+    on(event, handler) {
+      if (event === "data") handler(body);
+      if (event === "end") handler();
+      return res;
+    },
   };
+  callback(res);
+  return { on: () => {}, write: () => {}, end: () => {} };
 };
 
 require("../cloud/main.js");

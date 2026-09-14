@@ -1,15 +1,51 @@
 // Thin wrapper around the OpenAI Chat Completions API using Structured Outputs
-// (response_format: json_schema, strict). No `openai` npm dependency — Back4App's
-// Node 18+ Cloud Code runtime provides a global `fetch`.
+// (response_format: json_schema, strict). Uses Node's core `https` module rather
+// than the global `fetch` or the `openai` npm package, since Back4App's classic
+// Cloud Code sandbox may run an older Node runtime that lacks a global fetch.
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const https = require("https");
+
+const OPENAI_HOST = "api.openai.com";
+const OPENAI_PATH = "/v1/chat/completions";
 
 class AIClientError extends Error {
-  constructor(message, { cause } = {}) {
+  constructor(message, options) {
     super(message);
     this.name = "AIClientError";
-    if (cause) this.cause = cause;
+    if (options && options.cause) {
+      this.cause = options.cause;
+    }
   }
+}
+
+function postJSON(host, path, headers, body) {
+  return new Promise(function (resolve, reject) {
+    const payload = JSON.stringify(body);
+    const requestHeaders = Object.assign(
+      {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      },
+      headers
+    );
+    const req = https.request(
+      { host: host, path: path, method: "POST", headers: requestHeaders },
+      function (res) {
+        let data = "";
+        res.on("data", function (chunk) {
+          data += chunk;
+        });
+        res.on("end", function () {
+          resolve({ statusCode: res.statusCode, body: data });
+        });
+      }
+    );
+    req.on("error", function (err) {
+      reject(err);
+    });
+    req.write(payload);
+    req.end();
+  });
 }
 
 /**
@@ -19,17 +55,17 @@ class AIClientError extends Error {
  * @param {string} params.schemaName
  * @param {object} params.schema - JSON schema (strict-compatible) for the expected response.
  * @param {number} [params.temperature]
- * @param {typeof fetch} [params.fetchImpl] - injectable for tests.
+ * @param {typeof postJSON} [params.requestImpl] - injectable for tests.
  * @returns {Promise<object>} parsed JSON response body
  */
-async function generateJSON({
-  systemPrompt,
-  userPrompt,
-  schemaName,
-  schema,
-  temperature = 0.3,
-  fetchImpl = fetch,
-}) {
+async function generateJSON(params) {
+  const systemPrompt = params.systemPrompt;
+  const userPrompt = params.userPrompt;
+  const schemaName = params.schemaName;
+  const schema = params.schema;
+  const temperature = typeof params.temperature === "number" ? params.temperature : 0.3;
+  const requestFn = params.requestImpl || postJSON;
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new AIClientError("OPENAI_API_KEY is not configured.");
@@ -38,15 +74,13 @@ async function generateJSON({
 
   let response;
   try {
-    response = await fetchImpl(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature,
+    response = await requestFn(
+      OPENAI_HOST,
+      OPENAI_PATH,
+      { Authorization: "Bearer " + apiKey },
+      {
+        model: model,
+        temperature: temperature,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -56,33 +90,32 @@ async function generateJSON({
           json_schema: {
             name: schemaName,
             strict: true,
-            schema,
+            schema: schema,
           },
         },
-      }),
-    });
+      }
+    );
   } catch (err) {
     throw new AIClientError("Failed to reach OpenAI.", { cause: err });
   }
 
-  if (!response.ok) {
-    let detail = "";
-    try {
-      detail = await response.text();
-    } catch {
-      // ignore
-    }
-    throw new AIClientError(`OpenAI request failed with status ${response.status}: ${detail}`);
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new AIClientError(
+      "OpenAI request failed with status " + response.statusCode + ": " + response.body
+    );
   }
 
-  let body;
+  let parsedBody;
   try {
-    body = await response.json();
+    parsedBody = JSON.parse(response.body);
   } catch (err) {
     throw new AIClientError("OpenAI response was not valid JSON.", { cause: err });
   }
 
-  const content = body?.choices?.[0]?.message?.content;
+  const choices = parsedBody.choices;
+  const firstChoice = choices && choices[0];
+  const message = firstChoice && firstChoice.message;
+  const content = message && message.content;
   if (typeof content !== "string") {
     throw new AIClientError("OpenAI response did not contain message content.");
   }
@@ -94,4 +127,4 @@ async function generateJSON({
   }
 }
 
-module.exports = { generateJSON, AIClientError };
+module.exports = { generateJSON: generateJSON, AIClientError: AIClientError };

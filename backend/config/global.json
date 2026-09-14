@@ -1,8 +1,13 @@
 {
-  "global": {},
+  "global": {
+    "parseVersion": "2.2.25"
+  },
   "applications": {
     "ScrubPrep": {
       "applicationId": "8wtDjVoWgS9tKzB9DFwsXpnvOsJsyZuAl0RR6J6c"
+    },
+    "_default": {
+      "link": "ScrubPrep"
     }
   }
 }
