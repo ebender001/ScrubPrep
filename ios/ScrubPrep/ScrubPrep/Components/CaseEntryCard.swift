@@ -4,13 +4,19 @@ import SwiftUI
 struct CaseEntryCard: View {
     @Binding var caseDescription: String
     let exampleChips: [CaseType]
-    let isSpecialtySelected: Bool
+    let selectedSpecialty: Specialty?
     let onSubmit: () -> Void
 
     @FocusState private var isFocused: Bool
 
+    private var isSpecialtySelected: Bool { selectedSpecialty != nil }
+
+    private var exampleCaseDescription: String {
+        selectedSpecialty?.exampleCaseDescription ?? Specialty.defaultExampleCaseDescription
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("What are you scrubbing on?")
                 .font(.title3.weight(.semibold))
 
@@ -37,6 +43,12 @@ struct CaseEntryCard: View {
                 }
             }
 
+            // Shown above the text box (rather than below) so it explains what to enter
+            // before the student starts typing. Specialty-specific once one is selected.
+            Text("e.g. \u{201C}\(exampleCaseDescription)\u{201D}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             ZStack(alignment: .topLeading) {
                 if caseDescription.isEmpty {
                     Text(isSpecialtySelected ? "Enter an operation or case" : "Select a specialty above first")
@@ -54,17 +66,20 @@ struct CaseEntryCard: View {
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .opacity(isSpecialtySelected ? 1 : 0.6)
 
-            Text("e.g. \u{201C}Lap chole for symptomatic gallstones\u{201D}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+            // Reads as helpful guidance, not a second heading — secondary color and a
+            // medium (not bold) weight keep it clearly subordinate to the card title.
             Text("Include important context, such as recurrent disease or redo surgery.")
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.primary)
-
-            Text("Don't include patient-identifying information.")
-                .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            // Routine privacy guidance, not an error — no warning color.
+            Label {
+                Text("Don't include patient-identifying information.")
+            } icon: {
+                Image(systemName: "lock.shield")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
 
             Button(action: {
                 isFocused = false
@@ -93,7 +108,7 @@ struct CaseEntryCard: View {
             CaseType(name: "Inguinal Hernia", fullName: "Inguinal Hernia Repair", specialty: generalSurgery, featured: true),
             CaseType(name: "Colectomy", fullName: "Colectomy", specialty: generalSurgery, featured: true),
         ],
-        isSpecialtySelected: true,
+        selectedSpecialty: generalSurgery,
         onSubmit: {}
     )
     .padding()
