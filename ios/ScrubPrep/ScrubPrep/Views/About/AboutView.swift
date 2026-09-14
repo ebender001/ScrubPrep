@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// About / profile screen (spec §1, §15). No accounts yet — this is informational only.
-struct ProfileView: View {
+/// About screen (spec §1, §15) — informational only (creator bio, disclaimer). Account/
+/// subscription management will live elsewhere (e.g. a Home toolbar icon) once a paywall
+/// is introduced, rather than here.
+struct AboutView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -15,7 +17,7 @@ struct ProfileView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("About")
+                        Text("Creator")
                             .font(.headline)
                         Text("Scrub Prep was created by Edward Bender, MD, a retired cardiothoracic surgeon and former Clinical Professor of Cardiothoracic Surgery at Stanford University.")
                             .font(.subheadline)
@@ -40,11 +42,11 @@ struct ProfileView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Profile")
+            .navigationTitle("About")
         }
     }
 }
 
 #Preview {
-    ProfileView()
+    AboutView()
 }

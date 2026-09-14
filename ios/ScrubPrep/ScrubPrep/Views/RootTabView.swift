@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Bottom tab bar: Home | Cases | Learn | Profile (spec §3).
+/// Bottom tab bar: Home | Cases | Learn | About (spec §3).
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -16,8 +16,8 @@ struct RootTabView: View {
             LearnView()
                 .tabItem { Label("Learn", systemImage: "book.fill") }
 
-            ProfileView()
-                .tabItem { Label("Profile", systemImage: "person.crop.circle") }
+            AboutView()
+                .tabItem { Label("About", systemImage: "info.circle.fill") }
         }
     }
 }
