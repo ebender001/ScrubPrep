@@ -5,6 +5,11 @@ node_modules/
 *.log
 npm-debug.log*
 
+# Parse/Back4App CLI project config — .parse.local (and legacy config/local.json)
+# hold the app's Master Key, never commit them.
+.parse.local
+**/config/local.json
+
 # iOS
 ios/**/xcuserdata/
 ios/**/*.xcworkspace/xcuserdata/
