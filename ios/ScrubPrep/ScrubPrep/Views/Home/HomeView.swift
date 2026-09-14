@@ -36,8 +36,6 @@ struct HomeView: View {
                         )
                     }
 
-                    header
-
                     CaseEntryCard(
                         caseDescription: $viewModel.caseDescription,
                         exampleChips: viewModel.exampleChips,
@@ -126,12 +124,6 @@ struct HomeView: View {
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.errorMessage = nil } }
         )
-    }
-
-    private var header: some View {
-        Text("Be ready for surgery.")
-            .font(.title3.weight(.medium))
-            .foregroundStyle(.secondary)
     }
 
     private var recentCases: some View {
