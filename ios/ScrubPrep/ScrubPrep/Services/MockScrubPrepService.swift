@@ -110,19 +110,45 @@ final class MockScrubPrepService: ScrubPrepServicing {
         Specialty(id: "mock_orthopedics", name: "Orthopedics"),
     ]
 
-    private static let mockCaseTypes: [CaseType] = [
-        CaseType(name: "Lap Chole", specialty: mockSpecialties[0], featured: true),
-        CaseType(name: "Appendectomy", specialty: mockSpecialties[0], featured: true),
-        CaseType(name: "Inguinal Hernia", specialty: mockSpecialties[0], featured: true),
-        CaseType(name: "Colectomy", specialty: mockSpecialties[0], featured: true),
-        CaseType(name: "CABG", specialty: mockSpecialties[1], featured: false),
-        CaseType(name: "Tonsillectomy", specialty: mockSpecialties[3], featured: false),
-        CaseType(name: "Septoplasty", specialty: mockSpecialties[3], featured: false),
-        CaseType(name: "TURP", specialty: mockSpecialties[4], featured: false),
-        CaseType(name: "Nephrectomy", specialty: mockSpecialties[4], featured: false),
-        CaseType(name: "Total Knee Arthroplasty", specialty: mockSpecialties[5], featured: false),
-        CaseType(name: "ACL Reconstruction", specialty: mockSpecialties[5], featured: false),
+    private static let mockFeaturedCaseTypeNames: Set<String> = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
+
+    private static let mockCaseTypeNamesBySpecialtyIndex: [(specialtyIndex: Int, names: [String])] = [
+        (0, [
+            "Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy", "Umbilical Hernia Repair",
+            "Ventral Hernia Repair", "Small Bowel Resection", "Whipple Procedure", "Splenectomy",
+            "Nissen Fundoplication", "Thyroidectomy", "Roux-en-Y Gastric Bypass", "Sleeve Gastrectomy",
+            "Exploratory Laparotomy",
+        ]),
+        (1, [
+            "CABG", "Aortic Valve Replacement", "Mitral Valve Repair", "Mitral Valve Replacement", "TAVR",
+            "Ascending Aortic Aneurysm Repair", "Maze Procedure", "LVAD Placement", "Pericardiectomy",
+        ]),
+        (2, [
+            "Lobectomy", "Pneumonectomy", "Wedge Resection", "VATS Wedge Resection", "Esophagectomy",
+            "Mediastinoscopy", "Decortication", "Thymectomy", "Tracheostomy",
+        ]),
+        (3, [
+            "Tonsillectomy", "Septoplasty", "Adenoidectomy", "Myringotomy with Tube Placement", "Tympanoplasty",
+            "Mastoidectomy", "Functional Endoscopic Sinus Surgery", "Parotidectomy", "Neck Dissection",
+            "Laryngectomy", "Uvulopalatopharyngoplasty",
+        ]),
+        (4, [
+            "TURP", "Nephrectomy", "Radical Prostatectomy", "Cystectomy", "Ureteroscopy with Laser Lithotripsy",
+            "Percutaneous Nephrolithotomy", "Circumcision", "Vasectomy", "Orchiectomy", "Pyeloplasty",
+            "Transurethral Resection of Bladder Tumor",
+        ]),
+        (5, [
+            "Total Knee Arthroplasty", "ACL Reconstruction", "Total Hip Arthroplasty", "Rotator Cuff Repair",
+            "Hip Fracture ORIF", "Ankle Fracture ORIF", "Lumbar Spinal Fusion", "Carpal Tunnel Release",
+            "Meniscus Repair", "Shoulder Arthroplasty", "Distal Radius Fracture ORIF", "Laminectomy",
+        ]),
     ]
+
+    private static let mockCaseTypes: [CaseType] = mockCaseTypeNamesBySpecialtyIndex.flatMap { entry in
+        entry.names.map { name in
+            CaseType(name: name, specialty: mockSpecialties[entry.specialtyIndex], featured: mockFeaturedCaseTypeNames.contains(name))
+        }
+    }
 
     func listCaseTypes() async throws -> [CaseType] {
         try await Task.sleep(nanoseconds: 200_000_000)
