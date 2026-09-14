@@ -12,7 +12,7 @@ function buildPrepUserPrompt(caseDescription) {
   return `The student is scrubbing on the following case: "${caseDescription}".
 
 Generate a JSON object with these fields:
-- title: a clean, properly capitalized name for the operation (e.g. "Laparoscopic Cholecystectomy").
+- title: a clean, properly capitalized name for the operation that preserves every clinically meaningful qualifier the student actually stated (e.g. "recurrent", "with prior surgery", "acute" vs. "chronic") so cases with different qualifiers read as clearly different at a glance — e.g. "Recurrent Inguinal Hernia Repair" for a case description mentioning recurrence, or "Laparoscopic Cholecystectomy with Prior Abdominal Surgery" for a case description mentioning prior surgery. Do not invent a qualifier the student didn't state or clearly imply.
 - case_summary: 1-2 sentences on the clinical scenario/indication.
 - why_operating: 3-5 short bullets on why this operation is indicated.
 - anatomy: 4-7 short bullets on the anatomy the student should recognize intraoperatively.
