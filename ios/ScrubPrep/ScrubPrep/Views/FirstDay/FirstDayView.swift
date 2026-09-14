@@ -1,14 +1,7 @@
 import SwiftUI
 
-private struct FirstDayTopic: Identifiable {
-    let id = UUID()
-    let title: String
-    let systemImage: String
-    let items: [String]
-}
-
-private let firstDayTopics: [FirstDayTopic] = [
-    FirstDayTopic(
+private let firstDayTopics: [LearnTopic] = [
+    LearnTopic(
         title: "Before Rounds",
         systemImage: "sunrise",
         items: [
@@ -22,7 +15,7 @@ private let firstDayTopics: [FirstDayTopic] = [
             "Disposition issues (what's needed before discharge).",
         ]
     ),
-    FirstDayTopic(
+    LearnTopic(
         title: "Presenting on Rounds",
         systemImage: "person.wave.2",
         items: [
@@ -35,7 +28,7 @@ private let firstDayTopics: [FirstDayTopic] = [
             "Assessment and plan for the day.",
         ]
     ),
-    FirstDayTopic(
+    LearnTopic(
         title: "Going to the OR",
         systemImage: "arrow.right.square",
         items: [
@@ -46,7 +39,7 @@ private let firstDayTopics: [FirstDayTopic] = [
             "Meet the OR team — surgeon, anesthesia, nursing, techs.",
         ]
     ),
-    FirstDayTopic(
+    LearnTopic(
         title: "Scrubbing",
         systemImage: "hands.and.sparkles",
         items: [
@@ -57,7 +50,7 @@ private let firstDayTopics: [FirstDayTopic] = [
             "Follow your institution's specific sterile technique policies and the instructions of OR personnel — this isn't a substitute for that training.",
         ]
     ),
-    FirstDayTopic(
+    LearnTopic(
         title: "OR Etiquette",
         systemImage: "person.2.badge.gearshape",
         items: [
@@ -70,7 +63,7 @@ private let firstDayTopics: [FirstDayTopic] = [
             "Help when appropriate, and remain engaged.",
         ]
     ),
-    FirstDayTopic(
+    LearnTopic(
         title: "When You Don't Know an Answer",
         systemImage: "questionmark.bubble",
         items: [

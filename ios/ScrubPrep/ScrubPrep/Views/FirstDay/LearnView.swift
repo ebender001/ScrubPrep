@@ -22,6 +22,40 @@ struct LearnView: View {
                             .foregroundStyle(.blue)
                     }
                 }
+
+                NavigationLink {
+                    InstrumentsView()
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Instruments 101")
+                                .font(.subheadline.weight(.semibold))
+                            Text("Common instruments and what they're used for.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "scissors")
+                            .foregroundStyle(.teal)
+                    }
+                }
+
+                NavigationLink {
+                    AbbreviationsView()
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Abbreviations")
+                                .font(.subheadline.weight(.semibold))
+                            Text("Common OR and surgical shorthand.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "character.book.closed.fill")
+                            .foregroundStyle(.indigo)
+                    }
+                }
             }
             .navigationTitle("Learn")
         }
