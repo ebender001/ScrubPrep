@@ -34,6 +34,11 @@ private struct GenerateRapidFireRequest: ParseCloudable {
     let prep: ORPrep
 }
 
+private struct ListCaseTypesRequest: ParseCloudable {
+    typealias ReturnType = CaseTypeCatalog
+    var functionJobName = "listCaseTypes"
+}
+
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
 /// All OpenAI calls happen server-side — this type never sees an OpenAI key (spec §4).
 struct ParseScrubPrepService: ScrubPrepServicing {
@@ -53,6 +58,10 @@ struct ParseScrubPrepService: ScrubPrepServicing {
 
     func generateRapidFire(caseDescription: String, prep: ORPrep) async throws -> RapidFireResult {
         try await run { try await GenerateRapidFireRequest(caseDescription: caseDescription, prep: prep).runFunction() }
+    }
+
+    func listCaseTypes() async throws -> [CaseType] {
+        try await run { try await ListCaseTypesRequest().runFunction().caseTypes }
     }
 
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:

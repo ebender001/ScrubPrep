@@ -99,6 +99,27 @@ final class MockScrubPrepService: ScrubPrepServicing {
         return RapidFireResult(questions: padded)
     }
 
+    // Mirrors the seed data in backend/scripts/seed-case-types.js so mock mode looks the
+    // same as talking to the real catalog.
+    private static let mockCaseTypes: [CaseType] = [
+        CaseType(name: "Lap Chole", specialty: "general_surgery", featured: true),
+        CaseType(name: "Appendectomy", specialty: "general_surgery", featured: true),
+        CaseType(name: "Inguinal Hernia", specialty: "general_surgery", featured: true),
+        CaseType(name: "Colectomy", specialty: "general_surgery", featured: true),
+        CaseType(name: "CABG", specialty: "cardiothoracic", featured: false),
+        CaseType(name: "Tonsillectomy", specialty: "ent", featured: false),
+        CaseType(name: "Septoplasty", specialty: "ent", featured: false),
+        CaseType(name: "TURP", specialty: "urology", featured: false),
+        CaseType(name: "Nephrectomy", specialty: "urology", featured: false),
+        CaseType(name: "Total Knee Arthroplasty", specialty: "orthopedics", featured: false),
+        CaseType(name: "ACL Reconstruction", specialty: "orthopedics", featured: false),
+    ]
+
+    func listCaseTypes() async throws -> [CaseType] {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return MockScrubPrepService.mockCaseTypes
+    }
+
     private static func questionTarget(for difficulty: PimpDifficulty) -> Int {
         switch difficulty {
         case .easy, .typical: return 5

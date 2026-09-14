@@ -10,7 +10,9 @@ final class HomeViewModel: ObservableObject {
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
 
-    let exampleChips = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
+    // Seeded default so the UI has something to show before (or if) the server-side
+    // catalog fetch below completes — see backend/cloud/scrubPrep/caseTypes.js.
+    @Published var exampleChips = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
 
     let loadingMessages = [
         "Reviewing the operation",
@@ -38,6 +40,20 @@ final class HomeViewModel: ObservableObject {
     init(service: ScrubPrepServicing? = nil, historyStore: CaseHistoryStore) {
         self.service = service ?? ScrubPrepServiceFactory.make()
         self.historyStore = historyStore
+        loadCaseTypes()
+    }
+
+    /// Refreshes the Home screen quick-picks from the server-side catalog. Failure is
+    /// silent — the hardcoded fallback chips above stay in place (spec: never let a
+    /// decorative fetch block or error out the primary "prepare a case" flow).
+    private func loadCaseTypes() {
+        Task {
+            guard let caseTypes = try? await service.listCaseTypes() else { return }
+            let featured = caseTypes.filter(\.featured).map(\.name)
+            if !featured.isEmpty {
+                exampleChips = featured
+            }
+        }
     }
 
     func prepareCase() {

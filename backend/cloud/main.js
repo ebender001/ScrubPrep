@@ -5,6 +5,7 @@ const prep = require("./scrubPrep/prep");
 const pimp = require("./scrubPrep/pimp");
 const rapidFire = require("./scrubPrep/rapidFire");
 const schemas = require("./scrubPrep/schemas");
+const caseTypes = require("./scrubPrep/caseTypes");
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
@@ -194,6 +195,14 @@ Parse.Cloud.define(
       done: false,
       progress: { index: updatedHistory.length, total: target },
     };
+  })
+);
+
+Parse.Cloud.define(
+  "listCaseTypes",
+  safeHandler(async () => {
+    const items = await caseTypes.listCaseTypes();
+    return { caseTypes: items };
   })
 );
 

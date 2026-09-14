@@ -43,11 +43,35 @@ class FakeParseObject {
 class FakeParseQuery {
   constructor(className) {
     this.className = className;
+    this._order = [];
   }
   async get(id) {
     const obj = (store[this.className] || {})[id];
     if (!obj) throw new FakeParseError(101, "not found");
     return obj;
+  }
+  ascending(field) {
+    this._order = [field];
+    return this;
+  }
+  addAscending(field) {
+    this._order.push(field);
+    return this;
+  }
+  limit() {
+    return this;
+  }
+  async find() {
+    const all = Object.values(store[this.className] || {});
+    return all.slice().sort((a, b) => {
+      for (const field of this._order) {
+        const av = a.get(field);
+        const bv = b.get(field);
+        if (av < bv) return -1;
+        if (av > bv) return 1;
+      }
+      return 0;
+    });
   }
 }
 
@@ -181,6 +205,27 @@ test("generateRapidFire returns exactly 5 questions via the cloud function", asy
     params: { caseDescription: "Appendectomy", prep: { title: "Appendectomy" } },
   });
   assert.equal(result.questions.length, 5);
+});
+
+test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name", async () => {
+  store.CaseType = {};
+  const seed = [
+    { name: "Appendectomy", specialty: "general_surgery", sortOrder: 2, featured: true },
+    { name: "Lap Chole", specialty: "general_surgery", sortOrder: 1, featured: true },
+    { name: "CABG", specialty: "cardiothoracic", sortOrder: 1, featured: false },
+  ];
+  for (const attrs of seed) {
+    const obj = new FakeParseObject("CaseType");
+    for (const [key, value] of Object.entries(attrs)) obj.set(key, value);
+    await obj.save();
+  }
+
+  const result = await registry.listCaseTypes({ params: {} });
+  assert.deepEqual(result.caseTypes, [
+    { name: "CABG", specialty: "cardiothoracic", featured: false },
+    { name: "Lap Chole", specialty: "general_surgery", featured: true },
+    { name: "Appendectomy", specialty: "general_surgery", featured: true },
+  ]);
 });
 
 test("answerPimpQuestion returns a clean error for an unknown session", async () => {
