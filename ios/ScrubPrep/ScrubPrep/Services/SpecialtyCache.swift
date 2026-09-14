@@ -16,6 +16,8 @@ enum SpecialtyCache {
     static func save(_ specialties: [Specialty]) {
         guard let data = try? JSONEncoder().encode(specialties) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        // See SelectedSpecialtyStore.save's comment — same abrupt-kill race applies here.
+        UserDefaults.standard.synchronize()
     }
 }
 
@@ -35,5 +37,11 @@ enum SelectedSpecialtyStore {
         } else {
             UserDefaults.standard.removeObject(forKey: key)
         }
+        // UserDefaults normally shouldn't need an explicit synchronize() — the OS flushes
+        // it at appropriate lifecycle points. But Xcode's Stop button sends an immediate
+        // SIGKILL with no grace period (unlike backgrounding on a real device), so a
+        // selection made right before hitting Stop can be lost before cfprefsd writes it
+        // to disk. Forcing the flush here closes that window.
+        UserDefaults.standard.synchronize()
     }
 }
