@@ -5,13 +5,12 @@
 //  Created by Edward Bender on 9/14/26.
 //
 
+import SwiftData
 import SwiftUI
 import ParseSwift
 
 @main
 struct ScrubPrepApp: App {
-    @StateObject private var historyStore = CaseHistoryStore()
-
     init() {
         // Harmless to initialize even in mock mode / with a placeholder Client Key —
         // no network call happens here. Needed once AppConfig.useMockData flips to
@@ -28,7 +27,7 @@ struct ScrubPrepApp: App {
     var body: some Scene {
         WindowGroup {
             RootTabView()
-                .environmentObject(historyStore)
         }
+        .modelContainer(for: ScrubCase.self)
     }
 }

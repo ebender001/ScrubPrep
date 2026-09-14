@@ -54,7 +54,7 @@ final class HomeViewModel: ObservableObject {
             do {
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
-                historyStore.add(ScrubCase(caseDescription: trimmed, prep: prep))
+                historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
                 generatedPrep = prep
                 isGenerating = false
                 navigateToPrep = true

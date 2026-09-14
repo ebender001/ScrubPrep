@@ -1,43 +1,58 @@
-import Combine
 import Foundation
-import SwiftUI
+import SwiftData
 
-/// Local persistence for completed OR Preps (spec §11 — case history is client-side
-/// for v1). Backed by a JSON file in the app's Documents directory.
-/// No explicit `@MainActor` needed — the project's default actor isolation is MainActor.
-final class CaseHistoryStore: ObservableObject {
-    @Published private(set) var cases: [ScrubCase] = []
+/// Thin helper around a SwiftData `ModelContext` for OR Prep case history writes.
+/// Reads happen directly via `@Query` in views; this centralizes the "never
+/// duplicate a case" and "mark reviewed" write logic (spec §11).
+@MainActor
+final class CaseHistoryStore {
+    private let modelContext: ModelContext
 
-    private let fileURL: URL
-
-    init(fileName: String = "case_history.json") {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.fileURL = documents.appendingPathComponent(fileName)
-        load()
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
     }
 
-    func add(_ scrubCase: ScrubCase) {
-        cases.insert(scrubCase, at: 0)
+    /// Inserts a new case, or — if the same (normalized) case description was already
+    /// prepared — updates and re-dates that existing entry instead. Never duplicates
+    /// (e.g. regenerating "Lap Chole" always results in exactly one "Lap Chole" entry).
+    @discardableResult
+    func addOrUpdate(caseDescription: String, prep: ORPrep) -> ScrubCase {
+        let normalized = ScrubCase.normalize(caseDescription)
+        let descriptor = FetchDescriptor<ScrubCase>(
+            predicate: #Predicate { $0.normalizedDescription == normalized }
+        )
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.caseDescription = caseDescription
+            existing.prep = prep
+            existing.createdAt = Date()
+            existing.lastReviewedAt = nil
+            save()
+            return existing
+        }
+        let scrubCase = ScrubCase(caseDescription: caseDescription, prep: prep)
+        modelContext.insert(scrubCase)
         save()
+        return scrubCase
     }
 
     func markReviewed(_ scrubCase: ScrubCase) {
-        guard let index = cases.firstIndex(where: { $0.id == scrubCase.id }) else { return }
-        cases[index].lastReviewedAt = Date()
+        scrubCase.lastReviewedAt = Date()
         save()
     }
 
-    private func load() {
-        guard let data = try? Data(contentsOf: fileURL) else { return }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        cases = (try? decoder.decode([ScrubCase].self, from: data)) ?? []
+    func delete(_ scrubCase: ScrubCase) {
+        modelContext.delete(scrubCase)
+        save()
+    }
+
+    func delete(at offsets: IndexSet, in cases: [ScrubCase]) {
+        for index in offsets {
+            modelContext.delete(cases[index])
+        }
+        save()
     }
 
     private func save() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(cases) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        try? modelContext.save()
     }
 }

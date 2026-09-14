@@ -1,11 +1,16 @@
+import SwiftData
 import SwiftUI
 
 struct HomeView: View {
-    // Passed in explicitly (rather than @EnvironmentObject) so the *same* store instance
-    // can be used to construct HomeViewModel in init() — @EnvironmentObject isn't resolved
-    // yet at init time, which would otherwise lead to two disconnected store instances.
-    @ObservedObject private var historyStore: CaseHistoryStore
+    // Passed in explicitly (rather than resolved from @Environment) so the *same*
+    // instance can be used to construct HomeViewModel in init() — @Environment isn't
+    // resolved yet at init time.
+    private let historyStore: CaseHistoryStore
     @StateObject private var viewModel: HomeViewModel
+
+    // Reads go through @Query directly (SwiftData's idiomatic pattern) rather than
+    // through historyStore, which only handles writes.
+    @Query(sort: [SortDescriptor(\ScrubCase.createdAt, order: .reverse)]) private var allCases: [ScrubCase]
 
     init(historyStore: CaseHistoryStore) {
         self.historyStore = historyStore
@@ -59,7 +64,7 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if !historyStore.cases.isEmpty {
+                    if !allCases.isEmpty {
                         recentCases
                     }
                 }
@@ -122,7 +127,7 @@ struct HomeView: View {
             Text("Recent Cases")
                 .font(.title3.weight(.semibold))
 
-            ForEach(historyStore.cases.prefix(5)) { scrubCase in
+            ForEach(allCases.prefix(5)) { scrubCase in
                 RecentCaseRow(
                     scrubCase: scrubCase,
                     onReview: {
@@ -145,5 +150,7 @@ enum HomeRoute: Hashable {
 }
 
 #Preview {
-    HomeView(historyStore: CaseHistoryStore())
+    let container = try! ModelContainer(for: ScrubCase.self, configurations: .init(isStoredInMemoryOnly: true))
+    HomeView(historyStore: CaseHistoryStore(modelContext: container.mainContext))
+        .modelContainer(container)
 }

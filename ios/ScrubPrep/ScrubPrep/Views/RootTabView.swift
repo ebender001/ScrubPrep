@@ -1,15 +1,16 @@
+import SwiftData
 import SwiftUI
 
 /// Bottom tab bar: Home | Cases | Learn | Profile (spec §3).
 struct RootTabView: View {
-    @EnvironmentObject private var historyStore: CaseHistoryStore
+    @Environment(\.modelContext) private var modelContext
 
     var body: some View {
         TabView {
-            HomeView(historyStore: historyStore)
+            HomeView(historyStore: CaseHistoryStore(modelContext: modelContext))
                 .tabItem { Label("Home", systemImage: "house.fill") }
 
-            CasesListView(historyStore: historyStore)
+            CasesListView()
                 .tabItem { Label("Cases", systemImage: "list.bullet.clipboard") }
 
             LearnView()
@@ -22,6 +23,7 @@ struct RootTabView: View {
 }
 
 #Preview {
+    let container = try! ModelContainer(for: ScrubCase.self, configurations: .init(isStoredInMemoryOnly: true))
     RootTabView()
-        .environmentObject(CaseHistoryStore())
+        .modelContainer(container)
 }

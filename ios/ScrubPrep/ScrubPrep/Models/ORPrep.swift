@@ -1,7 +1,10 @@
 import Foundation
 
 /// A question/answer pair, used both in OR Prep's "likely questions" and Rapid Fire.
-struct QAPair: Codable, Hashable, Identifiable {
+/// `nonisolated`: this project defaults new types to MainActor isolation, but plain
+/// Codable data crossing actor boundaries (network decoding, SwiftData's background
+/// persistence machinery) needs its conformances usable from a nonisolated context.
+nonisolated struct QAPair: Codable, Hashable, Identifiable {
     let question: String
     let answer: String
 
@@ -10,7 +13,9 @@ struct QAPair: Codable, Hashable, Identifiable {
 
 /// The structured OR Prep session returned by the `generateScrubPrep` Cloud Function.
 /// Mirrors backend/cloud/scrubPrep/schemas.js's PREP_JSON_SCHEMA exactly.
-struct ORPrep: Codable, Hashable {
+/// `nonisolated`: see QAPair's note — required for SwiftData to persist this as a
+/// stored property on ScrubCase without a Swift 6 mode isolation error.
+nonisolated struct ORPrep: Codable, Hashable {
     let title: String
     let caseSummary: String
     let whyOperating: [String]
