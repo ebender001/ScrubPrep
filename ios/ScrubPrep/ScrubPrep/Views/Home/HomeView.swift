@@ -21,6 +21,13 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    if viewModel.selectedSpecialty == nil {
+                        Text("Pick a specialty to get started")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(Color.accentColor)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     if !viewModel.specialties.isEmpty {
                         SpecialtyRow(
                             specialties: viewModel.specialties,
@@ -77,6 +84,7 @@ struct HomeView: View {
                     }
                 }
                 .padding()
+                .animation(.easeInOut(duration: 0.3), value: viewModel.selectedSpecialty)
             }
             .navigationTitle("Scrub Prep")
             .navigationDestination(for: HomeRoute.self) { route in

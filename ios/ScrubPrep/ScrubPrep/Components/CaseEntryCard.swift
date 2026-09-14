@@ -37,6 +37,10 @@ struct CaseEntryCard: View {
                 .foregroundStyle(.secondary)
 
             if !exampleChips.isEmpty {
+                Text("Example cases — tap to use as-is, or add to it above")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(exampleChips, id: \.self) { chip in
