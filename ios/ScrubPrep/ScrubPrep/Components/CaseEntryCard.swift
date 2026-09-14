@@ -11,10 +11,6 @@ struct CaseEntryCard: View {
 
     private var isSpecialtySelected: Bool { selectedSpecialty != nil }
 
-    private var exampleCaseDescription: String {
-        selectedSpecialty?.displayedExampleCaseDescription ?? Specialty.defaultExampleCaseDescription
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("What are you scrubbing on?")
@@ -44,10 +40,13 @@ struct CaseEntryCard: View {
             }
 
             // Shown above the text box (rather than below) so it explains what to enter
-            // before the student starts typing. Specialty-specific once one is selected.
-            Text("e.g. \u{201C}\(exampleCaseDescription)\u{201D}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // before the student starts typing. Specialty-specific, and only shown once a
+            // specialty is selected — no example (generic or otherwise) on a fresh launch.
+            if let selectedSpecialty {
+                Text("e.g. \u{201C}\(selectedSpecialty.displayedExampleCaseDescription)\u{201D}")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             ZStack(alignment: .topLeading) {
                 if caseDescription.isEmpty {

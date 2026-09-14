@@ -18,7 +18,9 @@ final class HomeViewModel: ObservableObject {
 
     // Shown instantly from SpecialtyCache on launch, then silently refreshed from the
     // network — see backend/cloud/scrubPrep/specialties.js.
-    @Published var specialties: [Specialty] = SpecialtyCache.load()
+    @Published var specialties: [Specialty]
+    // Restored from SelectedSpecialtyStore on launch so closing and reopening the app
+    // remembers the student's specialty instead of resetting to "no specialty".
     @Published var selectedSpecialty: Specialty?
 
     private var allCaseTypes: [CaseType] = []
@@ -49,6 +51,13 @@ final class HomeViewModel: ObservableObject {
     init(service: ScrubPrepServicing? = nil, historyStore: CaseHistoryStore) {
         self.service = service ?? ScrubPrepServiceFactory.make()
         self.historyStore = historyStore
+
+        let cachedSpecialties = SpecialtyCache.load()
+        self.specialties = cachedSpecialties
+        if let persistedID = SelectedSpecialtyStore.load() {
+            self.selectedSpecialty = cachedSpecialties.first { $0.id == persistedID }
+        }
+
         loadCaseTypes()
         refreshSpecialties()
     }
@@ -74,27 +83,42 @@ final class HomeViewModel: ObservableObject {
     /// identity-based (id only, see Models/CaseType.swift), so a stale cache with the same
     /// ids but different content (e.g. a newly added field) would otherwise compare equal
     /// and never get refreshed.
+    ///
+    /// Also (re)resolves the persisted/current selection against the fresh list: this
+    /// re-syncs content (e.g. a corrected exampleCaseDescription) for an already-selected
+    /// specialty, and restores the persisted selection on a launch where the specialty
+    /// cache was empty (so it couldn't be resolved synchronously in init).
     private func refreshSpecialties() {
         Task {
             guard let fetched = try? await service.listSpecialties(), !fetched.isEmpty else { return }
             specialties = fetched
             SpecialtyCache.save(fetched)
+
+            if let targetID = selectedSpecialty?.id ?? SelectedSpecialtyStore.load() {
+                selectedSpecialty = fetched.first { $0.id == targetID }
+                if let selectedSpecialty, !allCaseTypes.isEmpty {
+                    exampleChips = matchingChips(for: selectedSpecialty)
+                }
+            }
         }
     }
 
     /// Tapping the already-selected specialty clears back to the no-selection state (no
     /// quick-pick chips) rather than falling back to some default specialty. Either way,
     /// the case description is cleared — a case typed/tapped in under one specialty
-    /// shouldn't linger after switching to another.
+    /// shouldn't linger after switching to another. The selection is persisted so it's
+    /// remembered the next time the app launches.
     func selectSpecialty(_ specialty: Specialty) {
         caseDescription = ""
         if selectedSpecialty == specialty {
             selectedSpecialty = nil
             exampleChips = []
+            SelectedSpecialtyStore.save(nil)
             return
         }
         selectedSpecialty = specialty
         exampleChips = matchingChips(for: specialty)
+        SelectedSpecialtyStore.save(specialty.id)
     }
 
     private func matchingChips(for specialty: Specialty) -> [CaseType] {

@@ -18,3 +18,22 @@ enum SpecialtyCache {
         UserDefaults.standard.set(data, forKey: key)
     }
 }
+
+/// Persists which specialty the student had selected so it's remembered across app
+/// launches — closing and reopening the app shouldn't reset back to "no specialty".
+enum SelectedSpecialtyStore {
+    private static let key = "selectedSpecialtyID.v1"
+
+    static func load() -> String? {
+        UserDefaults.standard.string(forKey: key)
+    }
+
+    /// Pass `nil` to clear the persisted selection (e.g. when the user deselects).
+    static func save(_ id: String?) {
+        if let id {
+            UserDefaults.standard.set(id, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+    }
+}
