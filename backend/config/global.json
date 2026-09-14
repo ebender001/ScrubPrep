@@ -1,4 +1,8 @@
 {
-  "applicationName": "Scrub Prep",
-  "masterKeyOnly": {}
+  "global": {},
+  "applications": {
+    "ScrubPrep": {
+      "applicationId": "8wtDjVoWgS9tKzB9DFwsXpnvOsJsyZuAl0RR6J6c"
+    }
+  }
 }
