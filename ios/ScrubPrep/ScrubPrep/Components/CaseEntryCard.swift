@@ -58,6 +58,10 @@ struct CaseEntryCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            Text("Don't forget circumstances that change the case, like recurrence or redo surgery.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Text("Do not enter patient names, dates of birth, medical record numbers, or other identifying information.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
