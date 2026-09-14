@@ -8,6 +8,12 @@ struct CasesListView: View {
 
     private var historyStore: CaseHistoryStore { CaseHistoryStore(modelContext: modelContext) }
 
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter
+    }()
+
     var body: some View {
         NavigationStack {
             Group {
@@ -24,10 +30,9 @@ struct CasesListView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(scrubCase.prep.title)
                                         .font(.subheadline.weight(.semibold))
-                                    Text(scrubCase.caseDescription)
+                                    Text(Self.dateFormatter.string(from: scrubCase.createdAt))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .lineLimit(1)
                                 }
                                 // Ensures the whole row (not just the text's own tight
                                 // bounding box) is tappable, all the way to the chevron.
