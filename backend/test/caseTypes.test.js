@@ -11,22 +11,41 @@ function fakeCaseType(attrs) {
   return { get: (key) => attrs[key] };
 }
 
-test("listCaseTypes maps Parse objects to plain { name, specialty, featured }", async () => {
+test("listCaseTypes maps Parse objects to plain { name, fullName, specialty, featured }", async () => {
   const generalSurgery = fakeSpecialty("sp1", "General Surgery", 1);
   const fetchCaseTypeObjects = async () => [
-    fakeCaseType({ name: "Lap Chole", specialty: generalSurgery, featured: true }),
+    fakeCaseType({
+      name: "Lap Chole",
+      fullName: "Laparoscopic Cholecystectomy",
+      specialty: generalSurgery,
+      featured: true,
+    }),
   ];
   const result = await caseTypes.listCaseTypes({ fetchCaseTypeObjects });
   assert.deepEqual(result, [
-    { name: "Lap Chole", specialty: { id: "sp1", name: "General Surgery" }, featured: true },
+    {
+      name: "Lap Chole",
+      fullName: "Laparoscopic Cholecystectomy",
+      specialty: { id: "sp1", name: "General Surgery" },
+      featured: true,
+    },
   ]);
 });
 
 test("listCaseTypes defaults featured to false when unset", async () => {
   const ent = fakeSpecialty("sp2", "ENT", 4);
-  const fetchCaseTypeObjects = async () => [fakeCaseType({ name: "Tonsillectomy", specialty: ent })];
+  const fetchCaseTypeObjects = async () => [
+    fakeCaseType({ name: "Tonsillectomy", fullName: "Tonsillectomy", specialty: ent }),
+  ];
   const result = await caseTypes.listCaseTypes({ fetchCaseTypeObjects });
   assert.equal(result[0].featured, false);
+});
+
+test("listCaseTypes falls back to name when fullName is unset", async () => {
+  const ent = fakeSpecialty("sp2", "ENT", 4);
+  const fetchCaseTypeObjects = async () => [fakeCaseType({ name: "Tonsillectomy", specialty: ent })];
+  const result = await caseTypes.listCaseTypes({ fetchCaseTypeObjects });
+  assert.equal(result[0].fullName, "Tonsillectomy");
 });
 
 test("listCaseTypes returns null specialty for a row with no pointer set", async () => {

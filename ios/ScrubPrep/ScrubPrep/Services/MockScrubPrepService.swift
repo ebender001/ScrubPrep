@@ -144,9 +144,43 @@ final class MockScrubPrepService: ScrubPrepServicing {
         ]),
     ]
 
+    // Mirrors backend/scripts/seed-case-types.js's fullName values. Falls back to `name`
+    // itself (via the dictionary lookup below) for procedures with no common abbreviation.
+    private static let mockFullNamesByName: [String: String] = [
+        "Lap Chole": "Laparoscopic Cholecystectomy",
+        "Inguinal Hernia": "Inguinal Hernia Repair",
+        "Whipple Procedure": "Pancreaticoduodenectomy (Whipple Procedure)",
+        "CABG": "Coronary Artery Bypass Grafting",
+        "TAVR": "Transcatheter Aortic Valve Replacement",
+        "Maze Procedure": "Maze Procedure for Atrial Fibrillation",
+        "LVAD Placement": "Left Ventricular Assist Device (LVAD) Placement",
+        "Lobectomy": "Pulmonary Lobectomy",
+        "Wedge Resection": "Pulmonary Wedge Resection",
+        "VATS Wedge Resection": "Video-Assisted Thoracoscopic (VATS) Wedge Resection",
+        "Decortication": "Pulmonary Decortication",
+        "Myringotomy with Tube Placement": "Myringotomy with Tympanostomy Tube Placement",
+        "Functional Endoscopic Sinus Surgery": "Functional Endoscopic Sinus Surgery (FESS)",
+        "Uvulopalatopharyngoplasty": "Uvulopalatopharyngoplasty (UPPP)",
+        "TURP": "Transurethral Resection of the Prostate",
+        "Percutaneous Nephrolithotomy": "Percutaneous Nephrolithotomy (PCNL)",
+        "Transurethral Resection of Bladder Tumor": "Transurethral Resection of Bladder Tumor (TURBT)",
+        "Total Knee Arthroplasty": "Total Knee Arthroplasty (Total Knee Replacement)",
+        "ACL Reconstruction": "Anterior Cruciate Ligament (ACL) Reconstruction",
+        "Total Hip Arthroplasty": "Total Hip Arthroplasty (Total Hip Replacement)",
+        "Hip Fracture ORIF": "Open Reduction and Internal Fixation (ORIF) of Hip Fracture",
+        "Ankle Fracture ORIF": "Open Reduction and Internal Fixation (ORIF) of Ankle Fracture",
+        "Shoulder Arthroplasty": "Shoulder Arthroplasty (Shoulder Replacement)",
+        "Distal Radius Fracture ORIF": "Open Reduction and Internal Fixation (ORIF) of Distal Radius Fracture",
+    ]
+
     private static let mockCaseTypes: [CaseType] = mockCaseTypeNamesBySpecialtyIndex.flatMap { entry in
         entry.names.map { name in
-            CaseType(name: name, specialty: mockSpecialties[entry.specialtyIndex], featured: mockFeaturedCaseTypeNames.contains(name))
+            CaseType(
+                name: name,
+                fullName: mockFullNamesByName[name] ?? name,
+                specialty: mockSpecialties[entry.specialtyIndex],
+                featured: mockFeaturedCaseTypeNames.contains(name)
+            )
         }
     }
 

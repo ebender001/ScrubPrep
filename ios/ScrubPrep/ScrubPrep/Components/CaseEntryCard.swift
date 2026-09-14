@@ -3,7 +3,7 @@ import SwiftUI
 /// The dominant "What are you scrubbing on?" card on the Home screen (spec §3).
 struct CaseEntryCard: View {
     @Binding var caseDescription: String
-    let exampleChips: [String]
+    let exampleChips: [CaseType]
     let isSpecialtySelected: Bool
     let onSubmit: () -> Void
 
@@ -21,11 +21,11 @@ struct CaseEntryCard: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(exampleChips, id: \.self) { chip in
+                        ForEach(exampleChips) { chip in
                             Button {
-                                caseDescription = chip
+                                caseDescription = chip.fullName
                             } label: {
-                                Text(chip)
+                                Text(chip.name)
                                     .font(.footnote.weight(.medium))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 7)
@@ -80,9 +80,15 @@ struct CaseEntryCard: View {
 }
 
 #Preview {
+    let generalSurgery = Specialty(id: "sp1", name: "General Surgery")
     CaseEntryCard(
         caseDescription: .constant(""),
-        exampleChips: ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"],
+        exampleChips: [
+            CaseType(name: "Lap Chole", fullName: "Laparoscopic Cholecystectomy", specialty: generalSurgery, featured: true),
+            CaseType(name: "Appendectomy", fullName: "Appendectomy", specialty: generalSurgery, featured: true),
+            CaseType(name: "Inguinal Hernia", fullName: "Inguinal Hernia Repair", specialty: generalSurgery, featured: true),
+            CaseType(name: "Colectomy", fullName: "Colectomy", specialty: generalSurgery, featured: true),
+        ],
         isSpecialtySelected: true,
         onSubmit: {}
     )

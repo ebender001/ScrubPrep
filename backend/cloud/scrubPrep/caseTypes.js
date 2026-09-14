@@ -1,6 +1,10 @@
 // Case type catalog, stored server-side as a `CaseType` Parse class so the list can be
-// curated/expanded without an app release. Each row: { name, specialty (Pointer<Specialty>),
-// sortOrder, featured }.
+// curated/expanded without an app release. Each row: { name, fullName,
+// specialty (Pointer<Specialty>), sortOrder, featured }. `name` is the short/colloquial
+// label shown on the compact quick-pick chip (e.g. "Lap Chole"); `fullName` is the proper
+// clinical name inserted into the case description field when that chip is tapped (e.g.
+// "Laparoscopic Cholecystectomy") — for procedures with no common abbreviation, the two
+// are identical.
 
 async function fetchCaseTypeObjects() {
   const query = new Parse.Query("CaseType");
@@ -26,6 +30,7 @@ async function listCaseTypes(deps = {}) {
     return {
       item: {
         name: obj.get("name"),
+        fullName: obj.get("fullName") || obj.get("name"),
         specialty: specialtyObj ? { id: specialtyObj.id, name: specialtyObj.get("name") } : null,
         featured: !!obj.get("featured"),
       },

@@ -237,9 +237,9 @@ test("listSpecialties returns catalog rows sorted by sortOrder, name", async () 
 test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name, with a populated specialty pointer", async () => {
   store.CaseType = {};
   const seed = [
-    { name: "Appendectomy", specialty: specialtiesByName["General Surgery"], sortOrder: 2, featured: true },
-    { name: "Lap Chole", specialty: specialtiesByName["General Surgery"], sortOrder: 1, featured: true },
-    { name: "CABG", specialty: specialtiesByName["Cardiac Surgery"], sortOrder: 1, featured: false },
+    { name: "Appendectomy", fullName: "Appendectomy", specialty: specialtiesByName["General Surgery"], sortOrder: 2, featured: true },
+    { name: "Lap Chole", fullName: "Laparoscopic Cholecystectomy", specialty: specialtiesByName["General Surgery"], sortOrder: 1, featured: true },
+    { name: "CABG", fullName: "Coronary Artery Bypass Grafting", specialty: specialtiesByName["Cardiac Surgery"], sortOrder: 1, featured: false },
   ];
   for (const attrs of seed) {
     const obj = new FakeParseObject("CaseType");
@@ -249,9 +249,9 @@ test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name, w
 
   const result = await registry.listCaseTypes({ params: {} });
   assert.deepEqual(result.caseTypes, [
-    { name: "Lap Chole", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
-    { name: "Appendectomy", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
-    { name: "CABG", specialty: { id: specialtiesByName["Cardiac Surgery"].id, name: "Cardiac Surgery" }, featured: false },
+    { name: "Lap Chole", fullName: "Laparoscopic Cholecystectomy", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
+    { name: "Appendectomy", fullName: "Appendectomy", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
+    { name: "CABG", fullName: "Coronary Artery Bypass Grafting", specialty: { id: specialtiesByName["Cardiac Surgery"].id, name: "Cardiac Surgery" }, featured: false },
   ]);
 });
 

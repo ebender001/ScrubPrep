@@ -12,8 +12,9 @@ final class HomeViewModel: ObservableObject {
 
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
     // chips until the user picks one from the specialty row (spec: specialty selection is
-    // the first step, not a default).
-    @Published var exampleChips: [String] = []
+    // the first step, not a default). Kept as full CaseType values (not just names) so the
+    // chip can show the short name while inserting fullName into the text field on tap.
+    @Published var exampleChips: [CaseType] = []
 
     // Shown instantly from SpecialtyCache on launch, then silently refreshed from the
     // network — see backend/cloud/scrubPrep/specialties.js.
@@ -91,8 +92,8 @@ final class HomeViewModel: ObservableObject {
         exampleChips = matchingChips(for: specialty)
     }
 
-    private func matchingChips(for specialty: Specialty) -> [String] {
-        allCaseTypes.filter { $0.specialty == specialty }.map(\.name)
+    private func matchingChips(for specialty: Specialty) -> [CaseType] {
+        allCaseTypes.filter { $0.specialty == specialty }
     }
 
     func prepareCase() {
