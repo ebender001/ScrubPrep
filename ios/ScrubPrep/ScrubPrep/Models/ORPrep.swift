@@ -37,4 +37,18 @@ nonisolated struct ORPrep: Codable, Hashable {
         case mustKnow = "must_know"
         case likelyQuestions = "likely_questions"
     }
+
+    /// Defensive fallback only — used if a stored ScrubCase's JSON blob ever fails to
+    /// decode (shouldn't happen in practice; see ScrubCase.prep).
+    static let empty = ORPrep(
+        title: "Untitled Case",
+        caseSummary: "",
+        whyOperating: [],
+        anatomy: [],
+        operationOverview: [],
+        thingsToWatch: [],
+        complications: [],
+        mustKnow: [],
+        likelyQuestions: []
+    )
 }
