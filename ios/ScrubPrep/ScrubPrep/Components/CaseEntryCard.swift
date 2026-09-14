@@ -58,11 +58,11 @@ struct CaseEntryCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Don't forget circumstances that change the case, like recurrence or redo surgery.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text("Include important context, such as recurrent disease or redo surgery.")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
 
-            Text("Do not enter patient names, dates of birth, medical record numbers, or other identifying information.")
+            Text("Don't include patient-identifying information.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
