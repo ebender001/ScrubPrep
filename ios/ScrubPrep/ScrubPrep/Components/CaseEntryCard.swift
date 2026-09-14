@@ -18,6 +18,23 @@ struct CaseEntryCard: View {
                 Text("Example cases — tap to use as-is, add to it, or create your own")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(exampleChips, id: \.self) { chip in
+                            Button {
+                                caseDescription = chip
+                            } label: {
+                                Text(chip)
+                                    .font(.footnote.weight(.medium))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(Color.accentColor.opacity(0.12), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
 
             ZStack(alignment: .topLeading) {
@@ -44,25 +61,6 @@ struct CaseEntryCard: View {
             Text("Do not enter patient names, dates of birth, medical record numbers, or other identifying information.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-
-            if !exampleChips.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(exampleChips, id: \.self) { chip in
-                            Button {
-                                caseDescription = chip
-                            } label: {
-                                Text(chip)
-                                    .font(.footnote.weight(.medium))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(Color.accentColor.opacity(0.12), in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
 
             Button(action: {
                 isFocused = false
