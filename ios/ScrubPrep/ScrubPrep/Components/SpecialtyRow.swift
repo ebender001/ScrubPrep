@@ -9,26 +9,42 @@ struct SpecialtyRow: View {
     let onSelect: (Specialty) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(specialties) { specialty in
-                    let isSelected = specialty == selectedSpecialty
-                    Button {
-                        onSelect(specialty)
-                    } label: {
-                        Text(specialty.name)
-                            .font(.footnote.weight(.medium))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .foregroundStyle(isSelected ? Color.white : Color.primary)
-                            .background(
-                                isSelected ? Color.accentColor : Color.accentColor.opacity(0.12),
-                                in: Capsule()
-                            )
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(specialties) { specialty in
+                        let isSelected = specialty == selectedSpecialty
+                        Button {
+                            onSelect(specialty)
+                        } label: {
+                            Text(specialty.name)
+                                .font(.footnote.weight(.medium))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                                .background(
+                                    isSelected ? Color.accentColor : Color.accentColor.opacity(0.12),
+                                    in: Capsule()
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .id(specialty.id)
                     }
-                    .buttonStyle(.plain)
                 }
             }
+            // Reveals the selected specialty (e.g. restored from a previous launch, so it
+            // wouldn't otherwise be scrolled into view) toward the right side of the visible
+            // strip rather than flush against the edge. A no-op (no visible animation) if
+            // it's already sitting there.
+            .onAppear { scrollToSelected(using: proxy) }
+            .onChange(of: selectedSpecialty) { _, _ in scrollToSelected(using: proxy) }
+        }
+    }
+
+    private func scrollToSelected(using proxy: ScrollViewProxy) {
+        guard let selectedSpecialty else { return }
+        withAnimation {
+            proxy.scrollTo(selectedSpecialty.id, anchor: UnitPoint(x: 0.85, y: 0.5))
         }
     }
 }
