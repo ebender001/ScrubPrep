@@ -10,12 +10,12 @@ enum AppConfig {
     /// TODO(Phase 2): replace with the real Client Key from the Back4App dashboard
     /// (App Settings -> Security & Keys -> Client Key). Safe to leave as a placeholder
     /// while `useMockData` is true.
-    static let parseClientKey = "REPLACE_WITH_CLIENT_KEY"
+    static let parseClientKey = "5ZCOxyWsRhXRyYZNsDPMY3vkq1xKCLRWvkiMZULN"
 
     static let parseServerURL = URL(string: "https://parseapi.back4app.com/")!
 
     /// When true, view models use bundled mock data (see Services/MockScrubPrepService.swift)
-    /// instead of calling the deployed Cloud Functions. Flip to false once `parseClientKey`
-    /// is filled in to test against the real backend (Phase 2).
-    static let useMockData = true
+    /// instead of calling the deployed Cloud Functions. false = real backend, real OpenAI
+    /// calls (real cost per generation) — Phase 2.
+    static let useMockData = false
 }
