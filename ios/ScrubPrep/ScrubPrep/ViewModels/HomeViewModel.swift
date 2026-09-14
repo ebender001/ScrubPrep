@@ -81,8 +81,11 @@ final class HomeViewModel: ObservableObject {
     }
 
     /// Tapping the already-selected specialty clears back to the no-selection state (no
-    /// quick-pick chips) rather than falling back to some default specialty.
+    /// quick-pick chips) rather than falling back to some default specialty. Either way,
+    /// the case description is cleared — a case typed/tapped in under one specialty
+    /// shouldn't linger after switching to another.
     func selectSpecialty(_ specialty: Specialty) {
+        caseDescription = ""
         if selectedSpecialty == specialty {
             selectedSpecialty = nil
             exampleChips = []
