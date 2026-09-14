@@ -21,6 +21,15 @@ final class HomeViewModel: ObservableObject {
 
     private let service: ScrubPrepServicing
     private let historyStore: CaseHistoryStore
+    private var generationTask: Task<Void, Never>?
+
+    // Guards against acting on a response that arrives after the user cancelled (or
+    // after a newer request superseded it). ParseSwift's public API doesn't expose a
+    // cancellable handle for the underlying network request (see ParseScrubPrepService),
+    // so Task.cancel() alone can't abort the in-flight HTTP call — but this ensures the
+    // app ignores its result entirely rather than surprising the user with a late
+    // navigation or stale data.
+    private var currentRequestID: UUID?
 
     // `service` isn't defaulted in the parameter list on purpose: ScrubPrepServiceFactory.make()
     // is MainActor-isolated, and default-argument expressions evaluate in a nonisolated
@@ -38,18 +47,32 @@ final class HomeViewModel: ObservableObject {
         errorMessage = nil
         isGenerating = true
 
-        Task {
+        let requestID = UUID()
+        currentRequestID = requestID
+
+        generationTask = Task {
             do {
                 let prep = try await service.generatePrep(caseDescription: trimmed)
+                guard !Task.isCancelled, requestID == currentRequestID else { return }
                 historyStore.add(ScrubCase(caseDescription: trimmed, prep: prep))
                 generatedPrep = prep
                 isGenerating = false
                 navigateToPrep = true
             } catch {
+                guard !Task.isCancelled, requestID == currentRequestID else { return }
                 isGenerating = false
                 errorMessage = (error as? LocalizedError)?.errorDescription
                     ?? "Scrub Prep wasn't able to generate your preparation session. Please try again."
             }
         }
+    }
+
+    /// Bails out of an in-progress generation (spec: Cancel on the preparing screen
+    /// returns to an interactive Home screen immediately).
+    func cancelPreparing() {
+        generationTask?.cancel()
+        generationTask = nil
+        currentRequestID = nil
+        isGenerating = false
     }
 }

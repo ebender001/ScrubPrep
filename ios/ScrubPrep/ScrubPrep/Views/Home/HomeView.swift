@@ -83,7 +83,11 @@ struct HomeView: View {
             }
             .overlay {
                 if viewModel.isGenerating {
-                    LoadingView(title: "Preparing your case\u{2026}", messages: viewModel.loadingMessages)
+                    LoadingView(
+                        title: "Preparing your case\u{2026}",
+                        messages: viewModel.loadingMessages,
+                        onCancel: viewModel.cancelPreparing
+                    )
                         .background(.regularMaterial)
                 }
             }

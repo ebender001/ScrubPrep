@@ -2,9 +2,13 @@ import Combine
 import SwiftUI
 
 /// Rotating status messages during AI generation (spec §19) — never a bare spinner.
+/// An optional `onCancel` shows a bailout button that returns control to the caller
+/// immediately (the caller is responsible for actually abandoning/ignoring the
+/// underlying request — see HomeViewModel.cancelPreparing).
 struct LoadingView: View {
     let title: String
     let messages: [String]
+    var onCancel: (() -> Void)?
 
     @State private var messageIndex = 0
 
@@ -23,6 +27,11 @@ struct LoadingView: View {
                     .contentTransition(.opacity)
                     .animation(.easeInOut, value: messageIndex)
             }
+            if let onCancel {
+                Button("Cancel", role: .cancel, action: onCancel)
+                    .buttonStyle(.bordered)
+                    .padding(.top, 8)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onReceive(timer) { _ in
@@ -35,6 +44,7 @@ struct LoadingView: View {
 #Preview {
     LoadingView(
         title: "Preparing your case…",
-        messages: ["Reviewing the operation", "Identifying key anatomy", "Finding likely questions", "Building your prep"]
+        messages: ["Reviewing the operation", "Identifying key anatomy", "Finding likely questions", "Building your prep"],
+        onCancel: {}
     )
 }
