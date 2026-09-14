@@ -21,6 +21,10 @@ extension Specialty {
         "General Surgery": "Lap chole for acute cholecystitis",
         "Cardiac Surgery": "CABG \u{00D7}3 for multivessel CAD",
         "Thoracic Surgery": "VATS right upper lobectomy for lung cancer",
+        "ENT": "Tonsillectomy for recurrent tonsillitis",
+        "Urology": "TURP for BPH with urinary retention",
+        "Orthopedics": "Total knee arthroplasty for end-stage osteoarthritis",
+        "Vascular Surgery": "CEA for symptomatic carotid stenosis",
     ]
 
     static let defaultExampleCaseDescription = "Lap chole for symptomatic gallstones"
