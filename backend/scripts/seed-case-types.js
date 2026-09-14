@@ -92,6 +92,18 @@ const CASE_TYPES = [
   { name: "Shoulder Arthroplasty", fullName: "Shoulder Arthroplasty (Shoulder Replacement)", specialtyName: "Orthopedics", sortOrder: 10, featured: false },
   { name: "Distal Radius Fracture ORIF", fullName: "Open Reduction and Internal Fixation (ORIF) of Distal Radius Fracture", specialtyName: "Orthopedics", sortOrder: 11, featured: false },
   { name: "Laminectomy", fullName: "Laminectomy", specialtyName: "Orthopedics", sortOrder: 12, featured: false },
+
+  // Vascular Surgery
+  { name: "CEA", fullName: "Carotid Endarterectomy", specialtyName: "Vascular Surgery", sortOrder: 1, featured: false },
+  { name: "AAA Repair", fullName: "Open Abdominal Aortic Aneurysm Repair", specialtyName: "Vascular Surgery", sortOrder: 2, featured: false },
+  { name: "EVAR", fullName: "Endovascular Aneurysm Repair", specialtyName: "Vascular Surgery", sortOrder: 3, featured: false },
+  { name: "Fem-Pop Bypass", fullName: "Femoral-Popliteal Bypass", specialtyName: "Vascular Surgery", sortOrder: 4, featured: false },
+  { name: "Lower Extremity Amputation", fullName: "Lower Extremity Amputation (Above- or Below-Knee)", specialtyName: "Vascular Surgery", sortOrder: 5, featured: false },
+  { name: "AV Fistula Creation", fullName: "Arteriovenous (AV) Fistula Creation for Dialysis Access", specialtyName: "Vascular Surgery", sortOrder: 6, featured: false },
+  { name: "Thrombectomy", fullName: "Thrombectomy for Acute Limb Ischemia", specialtyName: "Vascular Surgery", sortOrder: 7, featured: false },
+  { name: "Varicose Vein Ablation", fullName: "Varicose Vein Ablation", specialtyName: "Vascular Surgery", sortOrder: 8, featured: false },
+  { name: "Carotid Artery Stenting", fullName: "Carotid Artery Stenting (CAS)", specialtyName: "Vascular Surgery", sortOrder: 9, featured: false },
+  { name: "Peripheral Angioplasty", fullName: "Peripheral Angioplasty and Stenting", specialtyName: "Vascular Surgery", sortOrder: 10, featured: false },
 ];
 
 async function deleteAllCaseTypes(ctx) {

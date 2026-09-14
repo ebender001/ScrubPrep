@@ -15,6 +15,7 @@ const SPECIALTIES = [
   { name: "ENT", sortOrder: 4 },
   { name: "Urology", sortOrder: 5 },
   { name: "Orthopedics", sortOrder: 6 },
+  { name: "Vascular Surgery", sortOrder: 7 },
 ];
 
 async function upsertSpecialty(specialty, ctx) {

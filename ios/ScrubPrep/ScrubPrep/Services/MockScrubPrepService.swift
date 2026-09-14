@@ -108,6 +108,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
         Specialty(id: "mock_ent", name: "ENT"),
         Specialty(id: "mock_urology", name: "Urology"),
         Specialty(id: "mock_orthopedics", name: "Orthopedics"),
+        Specialty(id: "mock_vascular_surgery", name: "Vascular Surgery"),
     ]
 
     private static let mockFeaturedCaseTypeNames: Set<String> = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
@@ -142,6 +143,11 @@ final class MockScrubPrepService: ScrubPrepServicing {
             "Hip Fracture ORIF", "Ankle Fracture ORIF", "Lumbar Spinal Fusion", "Carpal Tunnel Release",
             "Meniscus Repair", "Shoulder Arthroplasty", "Distal Radius Fracture ORIF", "Laminectomy",
         ]),
+        (6, [
+            "CEA", "AAA Repair", "EVAR", "Fem-Pop Bypass", "Lower Extremity Amputation",
+            "AV Fistula Creation", "Thrombectomy", "Varicose Vein Ablation", "Carotid Artery Stenting",
+            "Peripheral Angioplasty",
+        ]),
     ]
 
     // Mirrors backend/scripts/seed-case-types.js's fullName values. Falls back to `name`
@@ -171,6 +177,15 @@ final class MockScrubPrepService: ScrubPrepServicing {
         "Ankle Fracture ORIF": "Open Reduction and Internal Fixation (ORIF) of Ankle Fracture",
         "Shoulder Arthroplasty": "Shoulder Arthroplasty (Shoulder Replacement)",
         "Distal Radius Fracture ORIF": "Open Reduction and Internal Fixation (ORIF) of Distal Radius Fracture",
+        "CEA": "Carotid Endarterectomy",
+        "AAA Repair": "Open Abdominal Aortic Aneurysm Repair",
+        "EVAR": "Endovascular Aneurysm Repair",
+        "Fem-Pop Bypass": "Femoral-Popliteal Bypass",
+        "Lower Extremity Amputation": "Lower Extremity Amputation (Above- or Below-Knee)",
+        "AV Fistula Creation": "Arteriovenous (AV) Fistula Creation for Dialysis Access",
+        "Thrombectomy": "Thrombectomy for Acute Limb Ischemia",
+        "Carotid Artery Stenting": "Carotid Artery Stenting (CAS)",
+        "Peripheral Angioplasty": "Peripheral Angioplasty and Stenting",
     ]
 
     private static let mockCaseTypes: [CaseType] = mockCaseTypeNamesBySpecialtyIndex.flatMap { entry in
