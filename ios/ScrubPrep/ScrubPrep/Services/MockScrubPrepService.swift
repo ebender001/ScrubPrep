@@ -102,13 +102,13 @@ final class MockScrubPrepService: ScrubPrepServicing {
     // Mirrors the seed data in backend/scripts/seed-specialties.js / seed-case-types.js so
     // mock mode looks the same as talking to the real catalog.
     private static let mockSpecialties: [Specialty] = [
-        Specialty(id: "mock_general_surgery", name: "General Surgery"),
-        Specialty(id: "mock_cardiac_surgery", name: "Cardiac Surgery"),
-        Specialty(id: "mock_thoracic_surgery", name: "Thoracic Surgery"),
-        Specialty(id: "mock_ent", name: "ENT"),
-        Specialty(id: "mock_urology", name: "Urology"),
-        Specialty(id: "mock_orthopedics", name: "Orthopedics"),
-        Specialty(id: "mock_vascular_surgery", name: "Vascular Surgery"),
+        Specialty(id: "mock_general_surgery", name: "General Surgery", exampleCaseDescription: "Lap chole for acute cholecystitis"),
+        Specialty(id: "mock_cardiac_surgery", name: "Cardiac Surgery", exampleCaseDescription: "CABG \u{00D7}3 for multivessel CAD"),
+        Specialty(id: "mock_thoracic_surgery", name: "Thoracic Surgery", exampleCaseDescription: "VATS right upper lobectomy for lung cancer"),
+        Specialty(id: "mock_ent", name: "ENT", exampleCaseDescription: "Tonsillectomy for recurrent tonsillitis"),
+        Specialty(id: "mock_urology", name: "Urology", exampleCaseDescription: "TURP for BPH with urinary retention"),
+        Specialty(id: "mock_orthopedics", name: "Orthopedics", exampleCaseDescription: "Total knee arthroplasty for end-stage osteoarthritis"),
+        Specialty(id: "mock_vascular_surgery", name: "Vascular Surgery", exampleCaseDescription: "CEA for symptomatic carotid stenosis"),
     ]
 
     private static let mockFeaturedCaseTypeNames: Set<String> = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]

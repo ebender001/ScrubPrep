@@ -12,7 +12,7 @@ struct CaseEntryCard: View {
     private var isSpecialtySelected: Bool { selectedSpecialty != nil }
 
     private var exampleCaseDescription: String {
-        selectedSpecialty?.exampleCaseDescription ?? Specialty.defaultExampleCaseDescription
+        selectedSpecialty?.displayedExampleCaseDescription ?? Specialty.defaultExampleCaseDescription
     }
 
     var body: some View {

@@ -7,21 +7,24 @@
 
 const { loadContext, restRequest } = require("./lib/parseRest");
 
-// Keep in sync with cloud/scrubPrep/specialties.js's expectations (name + sortOrder).
+// Keep in sync with cloud/scrubPrep/specialties.js's expectations (name + sortOrder +
+// exampleCaseDescription). exampleCaseDescription is shown in the iOS case-entry field
+// before the student has typed anything, once this specialty is selected — see
+// Specialty.exampleCaseDescription in the iOS app's Models/CaseType.swift.
 const SPECIALTIES = [
-  { name: "General Surgery", sortOrder: 1 },
-  { name: "Cardiac Surgery", sortOrder: 2 },
-  { name: "Thoracic Surgery", sortOrder: 3 },
-  { name: "ENT", sortOrder: 4 },
-  { name: "Urology", sortOrder: 5 },
-  { name: "Orthopedics", sortOrder: 6 },
-  { name: "Vascular Surgery", sortOrder: 7 },
+  { name: "General Surgery", sortOrder: 1, exampleCaseDescription: "Lap chole for acute cholecystitis" },
+  { name: "Cardiac Surgery", sortOrder: 2, exampleCaseDescription: "CABG \u{00D7}3 for multivessel CAD" },
+  { name: "Thoracic Surgery", sortOrder: 3, exampleCaseDescription: "VATS right upper lobectomy for lung cancer" },
+  { name: "ENT", sortOrder: 4, exampleCaseDescription: "Tonsillectomy for recurrent tonsillitis" },
+  { name: "Urology", sortOrder: 5, exampleCaseDescription: "TURP for BPH with urinary retention" },
+  { name: "Orthopedics", sortOrder: 6, exampleCaseDescription: "Total knee arthroplasty for end-stage osteoarthritis" },
+  { name: "Vascular Surgery", sortOrder: 7, exampleCaseDescription: "CEA for symptomatic carotid stenosis" },
 ];
 
 async function upsertSpecialty(specialty, ctx) {
   const where = encodeURIComponent(JSON.stringify({ name: specialty.name }));
   const existing = await restRequest({ method: "GET", pathname: `classes/Specialty?where=${where}`, ...ctx });
-  const fields = { sortOrder: specialty.sortOrder };
+  const fields = { sortOrder: specialty.sortOrder, exampleCaseDescription: specialty.exampleCaseDescription };
 
   if (existing.results && existing.results.length > 0) {
     const objectId = existing.results[0].objectId;

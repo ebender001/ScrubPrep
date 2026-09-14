@@ -2,9 +2,30 @@ import Foundation
 
 /// A specialty from the server-side catalog (see backend/cloud/scrubPrep/specialties.js),
 /// shown as a filter row on the Home screen.
-struct Specialty: Codable, Identifiable, Hashable {
+struct Specialty: Codable, Identifiable {
     let id: String
     let name: String
+    /// Backend-owned example shown in the case-entry field once this specialty is
+    /// selected (e.g. "Lap chole for acute cholecystitis" for General Surgery) — the
+    /// single source of truth lives in the `Specialty` Parse class, not client code.
+    /// Optional/defaulted because `CaseType`'s embedded specialty (from `listCaseTypes`)
+    /// only carries `id`/`name`, not this field.
+    let exampleCaseDescription: String?
+
+    init(id: String, name: String, exampleCaseDescription: String? = nil) {
+        self.id = id
+        self.name = name
+        self.exampleCaseDescription = exampleCaseDescription
+    }
+}
+
+extension Specialty: Equatable, Hashable {
+    // Identity is the backend objectId alone — not all stored properties — since the same
+    // specialty can arrive with different subsets of fields populated depending on which
+    // endpoint embedded it (listSpecialties vs. CaseType.specialty from listCaseTypes).
+    // Comparing every field would make those two representations compare unequal.
+    static func == (lhs: Specialty, rhs: Specialty) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 /// Response shape from `listSpecialties`.
@@ -13,24 +34,17 @@ struct SpecialtyCatalog: Codable {
 }
 
 extension Specialty {
-    /// A specialty-appropriate example shown in the case-entry card before the student has
-    /// typed anything (Home screen). Keyed by name (the only stable, human-meaningful
-    /// identifier — `id` is a backend-generated objectId). Add new specialties here as the
-    /// catalog grows; falls back to a generic example for any specialty not yet listed.
-    private static let exampleCaseDescriptionsByName: [String: String] = [
-        "General Surgery": "Lap chole for acute cholecystitis",
-        "Cardiac Surgery": "CABG \u{00D7}3 for multivessel CAD",
-        "Thoracic Surgery": "VATS right upper lobectomy for lung cancer",
-        "ENT": "Tonsillectomy for recurrent tonsillitis",
-        "Urology": "TURP for BPH with urinary retention",
-        "Orthopedics": "Total knee arthroplasty for end-stage osteoarthritis",
-        "Vascular Surgery": "CEA for symptomatic carotid stenosis",
-    ]
-
+    /// Shown before any specialty is selected, or if a selected specialty is missing its
+    /// backend-provided example.
     static let defaultExampleCaseDescription = "Lap chole for symptomatic gallstones"
 
-    var exampleCaseDescription: String {
-        Specialty.exampleCaseDescriptionsByName[name] ?? Specialty.defaultExampleCaseDescription
+    /// `exampleCaseDescription` with the generic fallback applied — use this instead of
+    /// the raw stored property when displaying an example.
+    var displayedExampleCaseDescription: String {
+        guard let text = exampleCaseDescription, !text.isEmpty else {
+            return Specialty.defaultExampleCaseDescription
+        }
+        return text
     }
 }
 

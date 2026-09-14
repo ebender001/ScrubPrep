@@ -11,7 +11,8 @@ async function fetchSpecialtyObjects() {
 }
 
 /**
- * Returns the specialty catalog as plain { id, name } objects, sorted by sortOrder/name.
+ * Returns the specialty catalog as plain { id, name, exampleCaseDescription } objects,
+ * sorted by sortOrder/name.
  *
  * @param {{ fetchSpecialtyObjects?: typeof fetchSpecialtyObjects }} [deps]
  */
@@ -21,6 +22,7 @@ async function listSpecialties(deps = {}) {
   return objects.map((obj) => ({
     id: obj.id,
     name: obj.get("name"),
+    exampleCaseDescription: obj.get("exampleCaseDescription") || "",
   }));
 }
 
