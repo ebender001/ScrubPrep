@@ -28,7 +28,6 @@ enum ScrubPrepError: LocalizedError {
 
 enum ScrubPrepServiceFactory {
     static func make() -> ScrubPrepServicing {
-        let base: ScrubPrepServicing = AppConfig.useMockData ? MockScrubPrepService() : ParseScrubPrepService()
-        return CachingScrubPrepService(wrapping: base)
+        AppConfig.useMockData ? MockScrubPrepService() : ParseScrubPrepService()
     }
 }

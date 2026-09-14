@@ -12,6 +12,17 @@ final class CaseHistoryStore {
         self.modelContext = modelContext
     }
 
+    /// Looks up an already-prepared case by (normalized) description — the on-device,
+    /// cross-launch source of truth for "have we already generated this case?" (used by
+    /// HomeViewModel.prepareCase to skip a network/OpenAI hit entirely when found).
+    func find(caseDescription: String) -> ScrubCase? {
+        let normalized = ScrubCase.normalize(caseDescription)
+        let descriptor = FetchDescriptor<ScrubCase>(
+            predicate: #Predicate { $0.normalizedDescription == normalized }
+        )
+        return try? modelContext.fetch(descriptor).first
+    }
+
     /// Inserts a new case, or — if the same (normalized) case description was already
     /// prepared — updates and re-dates that existing entry instead. Never duplicates
     /// (e.g. regenerating "Lap Chole" always results in exactly one "Lap Chole" entry).

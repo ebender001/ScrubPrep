@@ -45,6 +45,17 @@ final class HomeViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         errorMessage = nil
+
+        // Already prepared this case on this device? Reuse it — no network/OpenAI hit.
+        // Source of truth is SwiftData (persists across launches), not an in-memory
+        // cache, so this works even the first time a case is re-entered after relaunch.
+        if let existing = historyStore.find(caseDescription: trimmed) {
+            historyStore.markReviewed(existing)
+            generatedPrep = existing.prep
+            navigateToPrep = true
+            return
+        }
+
         isGenerating = true
 
         let requestID = UUID()
