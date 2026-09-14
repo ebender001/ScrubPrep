@@ -4,6 +4,7 @@ import SwiftUI
 struct CaseEntryCard: View {
     @Binding var caseDescription: String
     let exampleChips: [String]
+    let isSpecialtySelected: Bool
     let onSubmit: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -21,7 +22,7 @@ struct CaseEntryCard: View {
 
             ZStack(alignment: .topLeading) {
                 if caseDescription.isEmpty {
-                    Text("Enter an operation or case")
+                    Text(isSpecialtySelected ? "Enter an operation or case" : "Select a specialty above first")
                         .foregroundStyle(.tertiary)
                         .padding(.top, 8)
                         .padding(.leading, 5)
@@ -30,9 +31,11 @@ struct CaseEntryCard: View {
                     .frame(minHeight: 70)
                     .focused($isFocused)
                     .scrollContentBackground(.hidden)
+                    .disabled(!isSpecialtySelected)
             }
             .padding(8)
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .opacity(isSpecialtySelected ? 1 : 0.6)
 
             Text("e.g. \u{201C}Lap chole for symptomatic gallstones\u{201D}")
                 .font(.caption)
@@ -71,7 +74,7 @@ struct CaseEntryCard: View {
                     .padding(.vertical, 4)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!isSpecialtySelected || caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -79,6 +82,11 @@ struct CaseEntryCard: View {
 }
 
 #Preview {
-    CaseEntryCard(caseDescription: .constant(""), exampleChips: ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"], onSubmit: {})
-        .padding()
+    CaseEntryCard(
+        caseDescription: .constant(""),
+        exampleChips: ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"],
+        isSpecialtySelected: true,
+        onSubmit: {}
+    )
+    .padding()
 }

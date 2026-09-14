@@ -41,6 +41,7 @@ struct HomeView: View {
                     CaseEntryCard(
                         caseDescription: $viewModel.caseDescription,
                         exampleChips: viewModel.exampleChips,
+                        isSpecialtySelected: viewModel.selectedSpecialty != nil,
                         onSubmit: viewModel.prepareCase
                     )
 
