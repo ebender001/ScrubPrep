@@ -69,14 +69,16 @@ final class HomeViewModel: ObservableObject {
 
     /// Shows the cached specialty list instantly (if any), then always refreshes from the
     /// network in the background so a backend-side catalog change eventually reaches the
-    /// UI without the user needing to reinstall or manually refresh.
+    /// UI without the user needing to reinstall or manually refresh. Always overwrites
+    /// (rather than checking for a change first) — Specialty's Equatable conformance is
+    /// identity-based (id only, see Models/CaseType.swift), so a stale cache with the same
+    /// ids but different content (e.g. a newly added field) would otherwise compare equal
+    /// and never get refreshed.
     private func refreshSpecialties() {
         Task {
             guard let fetched = try? await service.listSpecialties(), !fetched.isEmpty else { return }
-            if fetched != specialties {
-                specialties = fetched
-                SpecialtyCache.save(fetched)
-            }
+            specialties = fetched
+            SpecialtyCache.save(fetched)
         }
     }
 
