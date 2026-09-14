@@ -61,20 +61,21 @@ Prints the generated OR Prep JSON to the console.
 
 - **Back4App CLI**: `b4a login`, then link this directory to your app once with `b4a add "<Your App Name>"` (writes `.parse.project`; run `b4a migrate` afterward if it instead produces a legacy `config/global.json` — the CLI prefers `.parse.project`/`.parse.local`), `b4a default "<Your App Name>"` to make it the default, then `b4a deploy` from inside `backend/` any time after.
 - **Dashboard Cloud Code editor**: paste the contents of `cloud/main.js` and each `cloud/scrubPrep/*.js` file into the dashboard's Cloud Code section, preserving the same relative paths.
-- **Either way, an explicit "Deploy" click in the dashboard's Cloud Code page seems required** to actually activate a release on this app even after `b4a deploy` succeeds and shows a new release — until that's clicked, the running server logs `main.js not found` and no functions are registered, despite the CLI reporting success and the dashboard file browser matching. Always verify with the REST test script below rather than trusting `b4a deploy`'s own output.
 - **GitHub integration**: connect this repo's `backend/` folder as the Cloud Code source in the Back4App dashboard for auto-deploy on push, if available for this app.
+
+Note: on this app, the very first release ever created needed one manual "Deploy" click in the dashboard's Cloud Code page before it took effect (until then, the running server logged `main.js not found` and registered zero functions, despite `b4a deploy` reporting success). Every `b4a deploy` since then has taken effect immediately with no further dashboard interaction — that one-time activation may just be a new-app quirk.
 
 After deploying, set `OPENAI_API_KEY` / `OPENAI_MODEL` as server environment variables in the dashboard (step 2 above) if you haven't already — the deployed functions read them via `process.env`.
 
 ## Verifying a deploy actually took effect
 
-The `b4a cloud <function>` CLI command returned `null` for both real and nonexistent function names on this app (likely missing local Master Key auth under the legacy `config/global.json` format) — don't trust it. Instead call the REST API directly:
+The `b4a cloud <function>` CLI command returned `null` for both real and nonexistent function names on this app — it's unreliable, don't trust it. Instead call the REST API directly:
 
 ```
-PARSE_APP_ID=... PARSE_MASTER_KEY=... node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Laparoscopic cholecystectomy for acute cholecystitis"}'
+node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Laparoscopic cholecystectomy for acute cholecystitis"}'
 ```
 
-Get `PARSE_APP_ID`/`PARSE_MASTER_KEY` from **App Settings → Security & Keys**. A real HTTP 200 with generated JSON (or a real Parse error code) means the deploy is actually live; a generic failure alongside `main.js not found` in `b4a logs` means the dashboard "Deploy" step above hasn't been done yet.
+(reads `PARSE_APP_ID`/`PARSE_MASTER_KEY` from `backend/.env` — see Setup step 1 — or pass them inline as env vars). Get the Master Key from **App Settings → Security & Keys**; treat it as compromised and rotate it if it's ever typed into a shared/logged terminal session. A real HTTP 200 with generated JSON (or a real Parse error code) means the deploy is live; `main.js not found` in `b4a logs` means the code isn't loading at all.
 
 ## Notes / TODOs for later phases
 
