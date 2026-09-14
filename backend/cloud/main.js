@@ -11,6 +11,26 @@ const specialties = require("./scrubPrep/specialties");
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
 
+// Custom Parse error code (outside Parse's own reserved 1-299/600s range) so the iOS
+// client can distinguish "that wasn't a real procedure" from a generic server error and
+// show the witty message as-is instead of a generic fallback. Parse Server SDKs also
+// accept a plain number for a custom code — it round-trips as ParseError.Code.other with
+// otherCode set to this value on the Swift side (see ParseError.swift's Decodable init).
+const UNRECOGNIZED_CASE_ERROR_CODE = 4001;
+
+const UNRECOGNIZED_CASE_MESSAGES = [
+  "That doesn't look like a real operation. Try again, or I'm telling your chief resident.",
+  "I've read every surgical textbook there is, and that's not in any of them. Try again with an actual case.",
+  "That's not a procedure — that's a cry for coffee. Try again with something you'd actually scrub in on.",
+  "Nice try, but that's not on today's OR schedule. Give me a real operation.",
+  "Even the attending is confused by that one. Try again before someone pages you.",
+];
+
+function randomUnrecognizedCaseMessage() {
+  const index = Math.floor(Math.random() * UNRECOGNIZED_CASE_MESSAGES.length);
+  return UNRECOGNIZED_CASE_MESSAGES[index];
+}
+
 function requireNonEmptyString(value, fieldName, maxLength) {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `${fieldName} is required.`);
@@ -58,7 +78,14 @@ Parse.Cloud.define(
       MAX_CASE_DESCRIPTION_LENGTH
     );
     assertNoPHI(caseDescription);
-    return prep.generatePrep(caseDescription);
+    try {
+      return await prep.generatePrep(caseDescription);
+    } catch (err) {
+      if (err instanceof prep.UnrecognizedCaseError) {
+        throw new Parse.Error(UNRECOGNIZED_CASE_ERROR_CODE, randomUnrecognizedCaseMessage());
+      }
+      throw err;
+    }
   })
 );
 

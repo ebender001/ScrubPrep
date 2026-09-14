@@ -1,6 +1,11 @@
 import Foundation
 import ParseSwift
 
+// Custom Parse error code backend/cloud/main.js uses for "that wasn't a real procedure" —
+// see UNRECOGNIZED_CASE_ERROR_CODE there. Kept in sync manually; there's no shared schema
+// between the JS and Swift sides for this.
+private let unrecognizedCaseErrorCode = 4001
+
 // MARK: - Cloud Function request types
 //
 // Each conforms to ParseCloudable: `functionJobName` names the deployed Cloud Function
@@ -74,13 +79,17 @@ struct ParseScrubPrepService: ScrubPrepServicing {
     }
 
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:
-    /// never show raw backend errors to the student).
+    /// never show raw backend errors to the student). `.unrecognizedCase` is the one
+    /// deliberate exception — that message is meant to be shown verbatim.
     private func run<T>(_ operation: () async throws -> T) async throws -> T {
         do {
             return try await operation()
         } catch let error as ParseError {
             if error.code == .connectionFailed {
                 throw ScrubPrepError.network
+            }
+            if error.code == .other, error.otherCode == unrecognizedCaseErrorCode {
+                throw ScrubPrepError.unrecognizedCase(message: error.message)
             }
             throw ScrubPrepError.server
         } catch {

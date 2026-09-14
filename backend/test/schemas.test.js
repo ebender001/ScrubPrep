@@ -18,6 +18,22 @@ test("validatePrep rejects missing required fields", () => {
   assert.throws(() => schemas.validatePrep({ title: "x" }));
 });
 
+test("validatePrep rejects a missing/non-boolean recognized field", () => {
+  const withoutRecognized = {
+    title: "x",
+    case_summary: "x",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["x"],
+    likely_questions: [{ question: "x", answer: "x" }],
+  };
+  assert.throws(() => schemas.validatePrep(withoutRecognized), /recognized/);
+  assert.doesNotThrow(() => schemas.validatePrep({ ...withoutRecognized, recognized: false }));
+});
+
 test("validateRapidFire enforces exactly 5 items", () => {
   const four = { questions: Array.from({ length: 4 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` })) };
   const five = { questions: Array.from({ length: 5 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` })) };

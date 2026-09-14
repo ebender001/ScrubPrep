@@ -14,6 +14,7 @@ const LIKELY_QUESTION_ITEM = {
 const PREP_JSON_SCHEMA = {
   type: "object",
   properties: {
+    recognized: { type: "boolean" },
     title: { type: "string" },
     case_summary: { type: "string" },
     why_operating: { type: "array", items: { type: "string" } },
@@ -25,6 +26,7 @@ const PREP_JSON_SCHEMA = {
     likely_questions: { type: "array", items: LIKELY_QUESTION_ITEM },
   },
   required: [
+    "recognized",
     "title",
     "case_summary",
     "why_operating",
@@ -118,6 +120,9 @@ function isQAArray(value) {
 function validatePrep(obj) {
   if (!obj || typeof obj !== "object") {
     throw new Error("Prep response was not a JSON object.");
+  }
+  if (typeof obj.recognized !== "boolean") {
+    throw new Error("Prep response missing required field: recognized");
   }
   const requiredStringFields = ["title", "case_summary"];
   for (const field of requiredStringFields) {

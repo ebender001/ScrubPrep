@@ -1,8 +1,9 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { generatePrep } = require("../cloud/scrubPrep/prep");
+const { generatePrep, UnrecognizedCaseError } = require("../cloud/scrubPrep/prep");
 
 const VALID_PREP = {
+  recognized: true,
   title: "Laparoscopic Cholecystectomy",
   case_summary: "A patient with symptomatic gallstones requiring elective cholecystectomy.",
   why_operating: ["Recurrent biliary colic", "Risk of complications if untreated"],
@@ -43,4 +44,17 @@ test("generatePrep throws a clean error after two failed attempts", async () => 
     () => generatePrep("Lap chole", { generateJSON }),
     /Failed to generate a valid OR Prep response/
   );
+});
+
+test("generatePrep throws UnrecognizedCaseError (no retry) when the model reports recognized: false", async () => {
+  let calls = 0;
+  const generateJSON = async () => {
+    calls += 1;
+    return { ...VALID_PREP, recognized: false, title: "Unrecognized Case" };
+  };
+  await assert.rejects(
+    () => generatePrep("asdkjfhaslkdjf", { generateJSON }),
+    (err) => err instanceof UnrecognizedCaseError
+  );
+  assert.equal(calls, 1, "should not retry a structurally valid recognized:false response");
 });

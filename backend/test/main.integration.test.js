@@ -203,6 +203,29 @@ test("generateScrubPrep rejects obvious PHI before calling the AI", async () => 
   );
 });
 
+test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish input", async () => {
+  responseQueue.push({
+    recognized: false,
+    title: "Unrecognized Case",
+    case_summary: "Not applicable.",
+    why_operating: ["Not applicable."],
+    anatomy: ["Not applicable."],
+    operation_overview: ["Not applicable."],
+    things_to_watch: ["Not applicable."],
+    complications: ["Not applicable."],
+    must_know: ["Not applicable.", "x", "x", "x", "x"],
+    likely_questions: [{ question: "x", answer: "x" }],
+  });
+  await assert.rejects(
+    () => registry.generateScrubPrep({ params: { caseDescription: "asdkjfhaslkdjf qwerty" } }),
+    (err) => {
+      assert.equal(err.code, 4001);
+      assert.ok(err.message.length > 0);
+      return true;
+    }
+  );
+});
+
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {
   responseQueue.push({
     questions: Array.from({ length: 5 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` })),

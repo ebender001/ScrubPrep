@@ -12,11 +12,15 @@ protocol ScrubPrepServicing {
 }
 
 /// Errors surfaced to the UI. Kept generic and friendly per spec §20 — never show raw
-/// backend/network errors to the student.
+/// backend/network errors to the student. `.unrecognizedCase` is the one deliberate
+/// exception: it carries the backend's own (randomly-picked, witty) message verbatim,
+/// since that message *is* the point — see backend/cloud/main.js's
+/// UNRECOGNIZED_CASE_MESSAGES.
 enum ScrubPrepError: LocalizedError {
     case network
     case server
     case invalidResponse
+    case unrecognizedCase(message: String)
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +28,8 @@ enum ScrubPrepError: LocalizedError {
             return "Check your connection and try again."
         case .server, .invalidResponse:
             return "Scrub Prep wasn't able to generate your preparation session. Please try again."
+        case .unrecognizedCase(let message):
+            return message
         }
     }
 }

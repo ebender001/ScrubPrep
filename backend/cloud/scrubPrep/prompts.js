@@ -12,6 +12,7 @@ function buildPrepUserPrompt(caseDescription) {
   return `The student is scrubbing on the following case: "${caseDescription}".
 
 Generate a JSON object with these fields:
+- recognized: boolean — true if the case description names or clearly implies a real, identifiable surgical/medical procedure. false if it's gibberish, unrelated to surgery/medicine, or otherwise not a real procedure you can identify. When false, still populate every other field below with brief, honest placeholder content (e.g. "Not applicable" or "No relevant information — the case description wasn't recognized as a real procedure") rather than inventing a fake operation, and set title to "Unrecognized Case".
 - title: a clean, properly capitalized name for the operation that preserves every clinically meaningful qualifier the student actually stated (e.g. "recurrent", "with prior surgery", "acute" vs. "chronic") so cases with different qualifiers read as clearly different at a glance — e.g. "Recurrent Inguinal Hernia Repair" for a case description mentioning recurrence, or "Laparoscopic Cholecystectomy with Prior Abdominal Surgery" for a case description mentioning prior surgery. Do not invent a qualifier the student didn't state or clearly imply.
 - case_summary: 1-2 sentences on the clinical scenario/indication.
 - why_operating: 3-5 short bullets on why this operation is indicated.
