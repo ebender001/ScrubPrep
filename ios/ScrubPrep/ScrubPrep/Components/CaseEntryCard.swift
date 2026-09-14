@@ -13,6 +13,12 @@ struct CaseEntryCard: View {
             Text("What are you scrubbing on?")
                 .font(.title3.weight(.semibold))
 
+            if !exampleChips.isEmpty {
+                Text("Example cases — tap to use as-is, add to it, or create your own")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             ZStack(alignment: .topLeading) {
                 if caseDescription.isEmpty {
                     Text("Enter an operation or case")
@@ -37,10 +43,6 @@ struct CaseEntryCard: View {
                 .foregroundStyle(.secondary)
 
             if !exampleChips.isEmpty {
-                Text("Example cases — tap to use as-is, or add to it above")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(exampleChips, id: \.self) { chip in
