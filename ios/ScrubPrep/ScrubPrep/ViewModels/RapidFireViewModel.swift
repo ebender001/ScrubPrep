@@ -1,10 +1,10 @@
 import Combine
 import Foundation
 
-/// Drives the Rapid Fire flow: fetch exactly 5 high-yield question/answer pairs once,
-/// then step through them one at a time — reveal the answer, advance, repeat. Unlike
-/// Pimp Me there's nothing to grade or persist; it's a fixed self-test the student can
-/// simply run again (spec §9: "2 minutes before the OR", no lengthy explanations).
+/// Drives the Rapid Fire flow: fetch exactly 5 high-yield question/answer pairs, then
+/// step through them one at a time — reveal the answer, advance, repeat. Unlike Pimp Me
+/// there's nothing to grade or persist; "Go Again" generates a fresh set of 5 rather than
+/// replaying the same ones (spec §9: "2 minutes before the OR", no lengthy explanations).
 @MainActor
 final class RapidFireViewModel: ObservableObject {
     let caseDescription: String
@@ -15,6 +15,11 @@ final class RapidFireViewModel: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var isAnswerRevealed = false
     @Published var errorMessage: String?
+
+    /// Every question asked across all rounds this session (including the current one,
+    /// once loaded) — sent back on the next "Go Again" so a fresh set doesn't just repeat
+    /// the same five questions.
+    private var askedQuestions: [String] = []
 
     private let service: ScrubPrepServicing
 
@@ -46,8 +51,13 @@ final class RapidFireViewModel: ObservableObject {
         errorMessage = nil
         Task {
             do {
-                let result = try await service.generateRapidFire(caseDescription: caseDescription, prep: prep)
+                let result = try await service.generateRapidFire(
+                    caseDescription: caseDescription,
+                    prep: prep,
+                    previousQuestions: askedQuestions
+                )
                 questions = result.questions
+                askedQuestions.append(contentsOf: result.questions.map(\.question))
                 isLoading = false
             } catch {
                 isLoading = false
@@ -65,10 +75,13 @@ final class RapidFireViewModel: ObservableObject {
         currentIndex += 1
     }
 
-    /// Runs through the same set of questions again from the top.
+    /// Starts a new round with a freshly-generated set of 5 questions, steering away from
+    /// every question already asked this session — not the same set replayed from the top.
     func restart() {
         currentIndex = 0
         isAnswerRevealed = false
+        questions = []
+        load()
     }
 
     private func friendlyMessage(for error: Error) -> String {

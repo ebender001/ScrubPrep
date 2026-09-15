@@ -6,7 +6,7 @@ protocol ScrubPrepServicing {
     func generatePrep(caseDescription: String) async throws -> ORPrep
     func startPimpSession(caseDescription: String, prep: ORPrep, difficulty: PimpDifficulty) async throws -> PimpSessionStart
     func answerPimpQuestion(sessionId: String, answer: String) async throws -> PimpAnswerResult
-    func generateRapidFire(caseDescription: String, prep: ORPrep) async throws -> RapidFireResult
+    func generateRapidFire(caseDescription: String, prep: ORPrep, previousQuestions: [String]) async throws -> RapidFireResult
     func listCaseTypes() async throws -> [CaseType]
     func listSpecialties() async throws -> [Specialty]
 }

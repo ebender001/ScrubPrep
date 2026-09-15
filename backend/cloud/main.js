@@ -10,6 +10,19 @@ const specialties = require("./scrubPrep/specialties");
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
+const MAX_PREVIOUS_QUESTIONS = 50;
+const MAX_PREVIOUS_QUESTION_LENGTH = 500;
+
+// Rapid Fire's previousQuestions comes straight from the client (unlike Pimp Me's, which
+// is derived server-side from stored sessions) — bound its size before it goes into a
+// prompt so a misbehaving client can't inflate token usage/cost.
+function sanitizePreviousQuestions(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((q) => typeof q === "string" && q.trim().length > 0)
+    .slice(0, MAX_PREVIOUS_QUESTIONS)
+    .map((q) => q.trim().slice(0, MAX_PREVIOUS_QUESTION_LENGTH));
+}
 
 // Custom Parse error code (outside Parse's own reserved 1-299/600s range) so the iOS
 // client can distinguish "that wasn't a real procedure" from a generic server error and
@@ -272,9 +285,11 @@ Parse.Cloud.define(
       MAX_CASE_DESCRIPTION_LENGTH
     );
     const { prep: prepContext } = request.params;
+    const previousQuestions = sanitizePreviousQuestions(request.params.previousQuestions);
     const { questions } = await rapidFire.generateRapidFire({
       caseDescription,
       prep: prepContext,
+      previousQuestions,
     });
     return { questions };
   })

@@ -5,12 +5,12 @@ const schemas = require("./schemas");
 /**
  * Generates exactly 5 high-yield question/answer pairs for the pre-op Rapid Fire review.
  *
- * @param {{ caseDescription: string, prep?: object }} params
+ * @param {{ caseDescription: string, prep?: object, previousQuestions?: string[] }} params
  * @param {{ generateJSON?: typeof aiClient.generateJSON }} [deps]
  */
-async function generateRapidFire({ caseDescription, prep }, deps = {}) {
+async function generateRapidFire({ caseDescription, prep, previousQuestions }, deps = {}) {
   const generateJSON = deps.generateJSON || aiClient.generateJSON;
-  const userPrompt = prompts.buildRapidFireUserPrompt({ caseDescription, prep });
+  const userPrompt = prompts.buildRapidFireUserPrompt({ caseDescription, prep, previousQuestions });
 
   const attempt = async (extraSystemNote) => {
     const raw = await generateJSON({

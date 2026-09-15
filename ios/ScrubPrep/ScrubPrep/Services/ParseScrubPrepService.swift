@@ -37,6 +37,7 @@ private struct GenerateRapidFireRequest: ParseCloudable {
     var functionJobName = "generateRapidFire"
     let caseDescription: String
     let prep: ORPrep
+    let previousQuestions: [String]
 }
 
 private struct ListCaseTypesRequest: ParseCloudable {
@@ -66,8 +67,10 @@ struct ParseScrubPrepService: ScrubPrepServicing {
         try await run { try await AnswerPimpQuestionRequest(sessionId: sessionId, answer: answer).runFunction() }
     }
 
-    func generateRapidFire(caseDescription: String, prep: ORPrep) async throws -> RapidFireResult {
-        try await run { try await GenerateRapidFireRequest(caseDescription: caseDescription, prep: prep).runFunction() }
+    func generateRapidFire(caseDescription: String, prep: ORPrep, previousQuestions: [String]) async throws -> RapidFireResult {
+        try await run {
+            try await GenerateRapidFireRequest(caseDescription: caseDescription, prep: prep, previousQuestions: previousQuestions).runFunction()
+        }
     }
 
     func listCaseTypes() async throws -> [CaseType] {

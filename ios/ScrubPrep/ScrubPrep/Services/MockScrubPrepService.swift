@@ -83,20 +83,18 @@ final class MockScrubPrepService: ScrubPrepServicing {
         }
     }
 
-    func generateRapidFire(caseDescription: String, prep: ORPrep) async throws -> RapidFireResult {
+    func generateRapidFire(caseDescription: String, prep: ORPrep, previousQuestions: [String]) async throws -> RapidFireResult {
         try await Task.sleep(nanoseconds: 400_000_000)
-        let pairs = Array(prep.likelyQuestions.prefix(5))
-        if pairs.count == 5 {
-            return RapidFireResult(questions: pairs)
-        }
-        // Pad out to 5 with generic mock questions if a mock prep has fewer than 5 likely_questions.
-        var padded = pairs
-        var i = 0
-        while padded.count < 5 {
-            padded.append(QAPair(question: MockScrubPrepService.mockQuestions[i % MockScrubPrepService.mockQuestions.count], answer: "See your OR Prep review."))
-            i += 1
-        }
-        return RapidFireResult(questions: padded)
+        let genericPairs = MockScrubPrepService.mockQuestions.map { QAPair(question: $0, answer: "See your OR Prep review.") }
+        let pool = prep.likelyQuestions + genericPairs
+
+        let excluded = Set(previousQuestions)
+        let fresh = pool.filter { !excluded.contains($0.question) }
+        // Several "Go Again" rounds in a row can exhaust the small mock pool — fall back to
+        // reusing it rather than return fewer than 5. The real backend's anti-repeat prompt
+        // instruction (not this mock) is what actually matters in production.
+        let source = fresh.count >= 5 ? fresh : pool
+        return RapidFireResult(questions: Array(source.prefix(5)))
     }
 
     // Mirrors the seed data in backend/scripts/seed-specialties.js / seed-case-types.js so

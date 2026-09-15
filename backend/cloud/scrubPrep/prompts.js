@@ -138,11 +138,17 @@ This is the last question of the session. Evaluate this final answer (assessment
 
 const RAPID_FIRE_SYSTEM_PROMPT = `Act like an experienced surgical attending giving a medical student a rapid-fire review in the last two minutes before scrubbing in. Generate exactly five high-yield questions with concise answers, ordered roughly from most to least essential. No lengthy explanations — answers should be short enough to read in a few seconds each.`;
 
-function buildRapidFireUserPrompt({ caseDescription, prep }) {
+function buildRapidFireUserPrompt({ caseDescription, prep, previousQuestions }) {
+  const previousQuestionsBlock =
+    Array.isArray(previousQuestions) && previousQuestions.length > 0
+      ? `\n\nQuestions already asked in earlier rounds for this case (do not repeat these or ask a close rephrasing — pick different high-yield questions):\n${previousQuestions
+          .map((q) => `- ${q}`)
+          .join("\n")}`
+      : "";
   return `Case: "${caseDescription}"
 
 Prep context the student already reviewed:
-${condensePrep(prep)}
+${condensePrep(prep)}${previousQuestionsBlock}
 
 Generate exactly 5 high-yield question/answer pairs for a 2-minute pre-op review. Return JSON: { "questions": [ { "question": "...", "answer": "..." }, ... ] } with exactly 5 items. Keep every answer to one short sentence.`;
 }
