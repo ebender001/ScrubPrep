@@ -7,6 +7,10 @@ import Foundation
 /// replaying the same ones (spec §9: "2 minutes before the OR", no lengthy explanations).
 @MainActor
 final class RapidFireViewModel: ObservableObject {
+    /// Caps the whole review (across every "Go Again" round) at 10 questions total —
+    /// this is meant to be a 2-minute pre-op refresher, not an unbounded quiz.
+    static let maxTotalQuestions = 10
+
     let caseDescription: String
     let prep: ORPrep
 
@@ -39,6 +43,12 @@ final class RapidFireViewModel: ObservableObject {
 
     var isLastQuestion: Bool {
         currentIndex == questions.count - 1
+    }
+
+    /// False once the total across all rounds has hit maxTotalQuestions — gates the
+    /// "Go Again" button on the completed screen.
+    var canGoAgain: Bool {
+        askedQuestions.count < Self.maxTotalQuestions
     }
 
     /// Idempotent once questions are loaded, so a repeated `.onAppear` (e.g. during a
@@ -77,7 +87,10 @@ final class RapidFireViewModel: ObservableObject {
 
     /// Starts a new round with a freshly-generated set of 5 questions, steering away from
     /// every question already asked this session — not the same set replayed from the top.
+    /// No-ops once maxTotalQuestions has been reached (the view hides this button by then,
+    /// via canGoAgain — this guard is just a backstop).
     func restart() {
+        guard canGoAgain else { return }
         currentIndex = 0
         isAnswerRevealed = false
         questions = []
