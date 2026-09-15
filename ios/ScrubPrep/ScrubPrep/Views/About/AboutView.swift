@@ -30,6 +30,19 @@ struct AboutView: View {
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Contact")
+                            .font(.headline)
+                        Text("Questions, feedback, or something not working? Reach out anytime.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Link("support@benderapps.dev", destination: URL(string: "mailto:support@benderapps.dev")!)
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Medical Disclaimer")
                             .font(.headline)
                         Text("Scrub Prep is an educational tool for medical students and is not intended to provide patient-specific medical advice, diagnosis, or treatment recommendations. Clinical decisions should be made under the supervision of the student's clinical team.")
