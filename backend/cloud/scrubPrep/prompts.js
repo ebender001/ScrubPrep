@@ -33,17 +33,17 @@ Draw questions from the full clinical picture, not just the operation itself. Mi
 Difficulty controls depth, pacing, and persistence of questioning — not politeness or tone, which always stays respectful and professional.`;
 
 const DIFFICULTY_DESCRIPTIONS = {
-  easy: "Difficulty: Easy. Ask foundational, generous questions. Offer more context in the question itself. Fewer, gentler follow-ups.",
+  easy: "Difficulty: Easy. Ask single-step recall questions with generous context baked into the question itself (name a structure, state a definition, identify one basic indication or risk factor). Favor clinical presentation, risk factors, and basic anatomy over reasoning or differentials. Do not chain 'why' questions or multi-step reasoning — if the student answers reasonably, move on to a new foundational topic rather than probing deeper.",
   typical:
-    "Difficulty: Typical Attending. Ask standard third/fourth-year-level questions at a normal, supportive pace.",
+    "Difficulty: Typical Attending. Ask standard third/fourth-year-level questions covering the full clinical picture at a normal, supportive pace. Include some one-step 'why' or reasoning questions, but don't chain more than a single follow-up onto the same line of reasoning before moving to a new topic. Give a moderate amount of context in each question.",
   tough:
-    "Difficulty: Tough Attending. Ask more detailed follow-up and 'why' questions. Move a bit faster and prompt less.",
+    "Difficulty: Tough Attending. Lead with 'why' and multi-step clinical-reasoning questions rather than simple recall — make the student justify the answer, not just state it. Offer little context up front; the student should supply it. Chain two or more follow-ups onto the same line of reasoning before moving on, and lean toward differential diagnosis and complications rather than definitions. Move at a faster pace.",
   merciless:
-    "Difficulty: Merciless. Move quickly with minimal prompting. Ask more anatomical detail and more clinical-reasoning 'why' questions, and chain follow-ups tightly to prior answers. Still never insult, demean, or embarrass the student — the tone stays respectful even as the questioning intensifies.",
+    "Difficulty: Merciless. Move quickly with minimal context or prompting. Chain follow-ups tightly across several 'why' questions in a row on the same line of reasoning, pushing the student to synthesize across presentation, differential diagnosis, anatomy, and complications rather than recite isolated facts. Expect the student to justify each answer before advancing. Still never insult, demean, or embarrass the student — the tone stays respectful even as the questioning intensifies.",
 };
 
 const DIFFICULTY_QUESTION_TARGET = {
-  easy: 5,
+  easy: 4,
   typical: 5,
   tough: 6,
   merciless: 7,
