@@ -45,7 +45,7 @@ struct AboutView: View {
                         Text("Questions, feedback, or something not working? Reach out anytime.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
-                        Link("support@benderapps.dev", destination: URL(string: "mailto:support@benderapps.dev")!)
+                        Link("support@benderapps.dev", destination: URL(string: "mailto:support@benderapps.dev?subject=Scrub%20Prep")!)
                             .font(.subheadline.weight(.medium))
                     }
                     .padding()
