@@ -13,6 +13,11 @@ final class AuthViewModel: ObservableObject {
     @Published private(set) var currentUser: User?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    /// Set right after a successful email/password signup (not Apple — there's no
+    /// password to recover on an Apple account, and we don't capture an email for one
+    /// either) — the root view shows a one-time "check your inbox" alert on top of the
+    /// transition into RootTabView, then clears this.
+    @Published var showAccountCreatedAlert = false
 
     /// ParseSwift restores a logged-in user from the Keychain synchronously at launch —
     /// no network call needed to know whether someone's already signed in.
@@ -40,6 +45,7 @@ final class AuthViewModel: ObservableObject {
             newUser.email = email
             newUser.password = password
             currentUser = try await newUser.signup()
+            showAccountCreatedAlert = true
         } catch {
             errorMessage = friendlyMessage(for: error)
         }

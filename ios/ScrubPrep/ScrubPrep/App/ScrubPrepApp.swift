@@ -35,6 +35,11 @@ struct ScrubPrepApp: App {
                 }
             }
             .environmentObject(authViewModel)
+            .alert("Account Created", isPresented: $authViewModel.showAccountCreatedAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Check your inbox to confirm your email address — you'll need it if you ever forget your password.")
+            }
         }
     }
 }
