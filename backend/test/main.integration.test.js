@@ -45,6 +45,7 @@ class FakeParseQuery {
   constructor(className) {
     this.className = className;
     this._order = [];
+    this._equalTo = {};
   }
   async get(id) {
     const obj = (store[this.className] || {})[id];
@@ -59,6 +60,10 @@ class FakeParseQuery {
     this._order.push(field);
     return this;
   }
+  equalTo(field, value) {
+    this._equalTo[field] = value;
+    return this;
+  }
   limit() {
     return this;
   }
@@ -68,7 +73,9 @@ class FakeParseQuery {
     return this;
   }
   async find() {
-    const all = Object.values(store[this.className] || {});
+    const all = Object.values(store[this.className] || {}).filter((obj) =>
+      Object.entries(this._equalTo).every(([field, value]) => obj.get(field) === value)
+    );
     return all.slice().sort((a, b) => {
       for (const field of this._order) {
         const av = a.get(field);

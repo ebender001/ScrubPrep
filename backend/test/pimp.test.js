@@ -3,19 +3,19 @@ const assert = require("node:assert/strict");
 const pimp = require("../cloud/scrubPrep/pimp");
 
 test("getQuestionTarget returns expected counts per difficulty", () => {
-  assert.equal(pimp.getQuestionTarget("easy"), 5);
+  assert.equal(pimp.getQuestionTarget("easy"), 4);
   assert.equal(pimp.getQuestionTarget("typical"), 5);
   assert.equal(pimp.getQuestionTarget("tough"), 6);
-  assert.equal(pimp.getQuestionTarget("merciless"), 7);
   // unknown difficulty falls back to typical
   assert.equal(pimp.getQuestionTarget("nonsense"), 5);
 });
 
 test("isSessionComplete matches the difficulty's question target", () => {
+  assert.equal(pimp.isSessionComplete(3, "easy"), false);
+  assert.equal(pimp.isSessionComplete(4, "easy"), true);
   assert.equal(pimp.isSessionComplete(4, "typical"), false);
   assert.equal(pimp.isSessionComplete(5, "typical"), true);
   assert.equal(pimp.isSessionComplete(6, "tough"), true);
-  assert.equal(pimp.isSessionComplete(6, "merciless"), false);
 });
 
 test("generateFirstQuestion validates and returns a question", async () => {

@@ -12,15 +12,15 @@ function getQuestionTarget(difficulty) {
 }
 
 /**
- * @param {{ caseDescription: string, prep?: object, difficulty?: string }} params
+ * @param {{ caseDescription: string, prep?: object, difficulty?: string, previousQuestions?: string[] }} params
  * @param {{ generateJSON?: typeof aiClient.generateJSON }} [deps]
  * @returns {Promise<{ question: string }>}
  */
-async function generateFirstQuestion({ caseDescription, prep, difficulty }, deps = {}) {
+async function generateFirstQuestion({ caseDescription, prep, difficulty, previousQuestions }, deps = {}) {
   const generateJSON = deps.generateJSON || aiClient.generateJSON;
   const raw = await generateJSON({
     systemPrompt: prompts.PIMP_SYSTEM_PROMPT,
-    userPrompt: prompts.buildPimpFirstQuestionUserPrompt({ caseDescription, prep, difficulty }),
+    userPrompt: prompts.buildPimpFirstQuestionUserPrompt({ caseDescription, prep, difficulty, previousQuestions }),
     schemaName: "pimp_first_question",
     schema: schemas.PIMP_FIRST_QUESTION_SCHEMA,
   });

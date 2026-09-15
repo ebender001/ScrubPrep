@@ -4,7 +4,6 @@ enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
     case easy
     case typical
     case tough
-    case merciless
 
     var id: String { rawValue }
 
@@ -13,7 +12,6 @@ enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
         case .easy: return "Easy"
         case .typical: return "Typical Attending"
         case .tough: return "Tough Attending"
-        case .merciless: return "Merciless"
         }
     }
 
@@ -21,8 +19,7 @@ enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .easy: return "Foundational questions, more guidance."
         case .typical: return "Standard student-level pimping."
-        case .tough: return "Faster pace, more follow-ups."
-        case .merciless: return "Rapid-fire follow-ups. Still respectful."
+        case .tough: return "Faster pace, follow-ups probe deeper."
         }
     }
 }

@@ -30,6 +30,8 @@ const PIMP_SYSTEM_PROMPT = `Act like an experienced surgical attending questioni
 
 Base feedback strictly on the literal text of "Student's answer" for the question being evaluated right now. Never say the student stated, described, or claimed something that isn't actually in that text, and never invent an incorrect statement to correct as a rhetorical contrast. If the answer is accurate but incomplete, say what's missing — don't fabricate an error just to have something to correct.
 
+Never ask a question that duplicates, or is only a minor rephrasing of, a question already listed under "Questions asked so far" (or, when starting a session, under "Questions already asked in earlier sessions on this case"). If your first idea repeats one of those, pick a different angle, topic, or category instead.
+
 Draw questions from the full clinical picture, not just the operation itself. Mix in: clinical presentation/features (how this diagnosis typically presents), risk factors (who gets this and why), differential diagnosis (what else could this be, and how you'd distinguish it), indications for surgery, relevant anatomy, the operative steps, and complications. A real pimping session usually starts with "why does this patient have this diagnosis" before narrowing to the operating room — vary which of these categories each question draws from across the session rather than defaulting to anatomy/operative trivia every time.
 
 Difficulty controls depth, pacing, and persistence of questioning — not politeness or tone, which always stays respectful and professional.`;
@@ -39,16 +41,13 @@ const DIFFICULTY_DESCRIPTIONS = {
   typical:
     "Difficulty: Typical Attending. Ask standard third/fourth-year-level questions covering the full clinical picture at a normal, supportive pace. Include some one-step 'why' or reasoning questions, but don't chain more than a single follow-up onto the same line of reasoning before moving to a new topic. Give a moderate amount of context in each question.",
   tough:
-    "Difficulty: Tough Attending. Lead with 'why' and multi-step clinical-reasoning questions rather than simple recall — make the student justify the answer, not just state it. Offer little context up front; the student should supply it. Chain two or more follow-ups onto the same line of reasoning before moving on, and lean toward differential diagnosis and complications rather than definitions. Move at a faster pace.",
-  merciless:
-    "Difficulty: Merciless. Move quickly with minimal context or prompting. Chain follow-ups tightly across several 'why' questions in a row on the same line of reasoning, pushing the student to synthesize across presentation, differential diagnosis, anatomy, and complications rather than recite isolated facts. Expect the student to justify each answer before advancing. Still never insult, demean, or embarrass the student — the tone stays respectful even as the questioning intensifies.",
+    "Difficulty: Tough Attending. Lead with 'why' and multi-step clinical-reasoning questions rather than simple recall — make the student justify the answer, not just state it. Offer little context up front; the student should supply it. Prioritize follow-ups that build directly on the student's own last answer: ask for clarification when it was incomplete or ambiguous, or probe deeper into the same concept when they got it right, rather than defaulting to a brand-new topic. Lean toward differential diagnosis and complications over definitions, and move at a faster pace.",
 };
 
 const DIFFICULTY_QUESTION_TARGET = {
   easy: 4,
   typical: 5,
   tough: 6,
-  merciless: 7,
 };
 
 function normalizeDifficulty(difficulty) {
@@ -71,14 +70,20 @@ function condensePrep(prep) {
   return parts.join("\n");
 }
 
-function buildPimpFirstQuestionUserPrompt({ caseDescription, prep, difficulty }) {
+function buildPimpFirstQuestionUserPrompt({ caseDescription, prep, difficulty, previousQuestions }) {
   const diffKey = normalizeDifficulty(difficulty);
+  const previousQuestionsBlock =
+    Array.isArray(previousQuestions) && previousQuestions.length > 0
+      ? `\n\nQuestions already asked in earlier sessions on this case (do not repeat these or ask a close rephrasing — pick a different angle or topic):\n${previousQuestions
+          .map((q) => `- ${q}`)
+          .join("\n")}`
+      : "";
   return `Case: "${caseDescription}"
 
 Prep context the student already reviewed:
 ${condensePrep(prep)}
 
-${DIFFICULTY_DESCRIPTIONS[diffKey]}
+${DIFFICULTY_DESCRIPTIONS[diffKey]}${previousQuestionsBlock}
 
 Ask the first pimping question of the session. Return JSON: { "question": "..." }.`;
 }
@@ -110,7 +115,7 @@ ${formatHistory(history)}
 Most recent question: "${question}"
 Student's answer: "${answer}"
 
-Evaluate the student's answer, give brief feedback and a short teaching point, tag the concept being tested in a couple of words (e.g. "cystic artery anatomy"), and ask a logically-connected follow-up question. Return JSON matching: { "assessment": "correct|partially_correct|incorrect", "feedback": "...", "teaching_point": "...", "concept": "...", "next_question": "..." }.`;
+Evaluate the student's answer, give brief feedback and a short teaching point, tag the concept being tested in a couple of words (e.g. "cystic artery anatomy"), and ask a logically-connected follow-up question that is clearly different from every question listed above under "Questions asked so far" — not a repeat or a close rephrasing of any of them. Return JSON matching: { "assessment": "correct|partially_correct|incorrect", "feedback": "...", "teaching_point": "...", "concept": "...", "next_question": "..." }.`;
 }
 
 function buildPimpFinalEvalUserPrompt({ caseDescription, prep, difficulty, history, question, answer }) {

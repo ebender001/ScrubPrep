@@ -211,9 +211,9 @@ final class MockScrubPrepService: ScrubPrepServicing {
 
     private static func questionTarget(for difficulty: PimpDifficulty) -> Int {
         switch difficulty {
-        case .easy, .typical: return 5
+        case .easy: return 4
+        case .typical: return 5
         case .tough: return 6
-        case .merciless: return 7
         }
     }
 

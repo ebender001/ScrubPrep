@@ -31,6 +31,25 @@ function randomUnrecognizedCaseMessage() {
   return UNRECOGNIZED_CASE_MESSAGES[index];
 }
 
+// So a new session (any difficulty) doesn't open with the same first question as an
+// earlier session on this same case — e.g. easy and typical both asking "why does this
+// patient have this diagnosis" verbatim.
+async function collectPreviousQuestions(caseDescription) {
+  const query = new Parse.Query("PimpSession");
+  query.equalTo("caseDescription", caseDescription);
+  query.limit(50);
+  const sessions = await query.find({ useMasterKey: true });
+  const questions = [];
+  for (const session of sessions) {
+    for (const turn of session.get("history") || []) {
+      if (turn && turn.question) questions.push(turn.question);
+    }
+    const pendingQuestion = session.get("pendingQuestion");
+    if (pendingQuestion) questions.push(pendingQuestion);
+  }
+  return questions;
+}
+
 function requireNonEmptyString(value, fieldName, maxLength) {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `${fieldName} is required.`);
@@ -99,10 +118,12 @@ Parse.Cloud.define(
     );
     const { prep: prepContext, difficulty } = request.params;
 
+    const previousQuestions = await collectPreviousQuestions(caseDescription);
     const { question } = await pimp.generateFirstQuestion({
       caseDescription,
       prep: prepContext,
       difficulty,
+      previousQuestions,
     });
 
     const PimpSession = Parse.Object.extend("PimpSession");
