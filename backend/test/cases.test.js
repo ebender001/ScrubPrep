@@ -1,0 +1,123 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const cases = require("../cloud/scrubPrep/cases");
+
+function fakeOwner(id) {
+  return { id };
+}
+
+function fakeCaseObject(attrs) {
+  const state = { ...attrs };
+  return {
+    id: state.id || "case1",
+    createdAt: state.createdAt || new Date("2024-01-01T00:00:00Z"),
+    updatedAt: state.updatedAt || new Date("2024-01-02T00:00:00Z"),
+    get: (key) => state[key],
+    set: (key, value) => {
+      state[key] = value;
+    },
+    save: async function () {
+      return this;
+    },
+    destroy: async function () {
+      this.destroyed = true;
+    },
+  };
+}
+
+test("upsertCase creates a new case when none exists", async () => {
+  const owner = fakeOwner("user1");
+  const created = fakeCaseObject({});
+  const result = await cases.upsertCase(
+    { owner, caseDescription: "Lap chole", prep: { title: "Lap Chole" } },
+    { fetchCaseObject: async () => null, newCaseObject: () => created }
+  );
+  assert.equal(result.caseDescription, "Lap chole");
+  assert.deepEqual(result.prep, { title: "Lap Chole" });
+  assert.equal(created.get("owner"), owner);
+  assert.equal(created.get("normalizedDescription"), "lap chole");
+  // A brand-new case was never reviewed, so lastReviewedAt should be left untouched (unset).
+  assert.equal(created.get("lastReviewedAt"), undefined);
+});
+
+test("upsertCase updates and clears lastReviewedAt on an existing match instead of duplicating", async () => {
+  const owner = fakeOwner("user1");
+  const existing = fakeCaseObject({
+    caseDescription: "Lap Chole",
+    normalizedDescription: "lap chole",
+    prep: { title: "Old" },
+    lastReviewedAt: new Date("2024-01-01T00:00:00Z"),
+  });
+  const result = await cases.upsertCase(
+    { owner, caseDescription: "Lap Chole", prep: { title: "New" } },
+    { fetchCaseObject: async () => existing, newCaseObject: () => assert.fail("should not create a new object") }
+  );
+  assert.deepEqual(result.prep, { title: "New" });
+  assert.equal(existing.get("lastReviewedAt"), null);
+});
+
+test("listCasesForOwner maps Parse objects to plain case objects", async () => {
+  const owner = fakeOwner("user1");
+  const obj = fakeCaseObject({ caseDescription: "CABG", prep: { title: "CABG" } });
+  const result = await cases.listCasesForOwner(owner, { fetchCasesForOwner: async () => [obj] });
+  assert.deepEqual(result, [
+    {
+      id: obj.id,
+      caseDescription: "CABG",
+      prep: { title: "CABG" },
+      createdAt: obj.createdAt,
+      updatedAt: obj.updatedAt,
+      lastReviewedAt: null,
+    },
+  ]);
+});
+
+test("markCaseReviewed returns null when the case isn't found/owned", async () => {
+  const result = await cases.markCaseReviewed(
+    { caseId: "nope", owner: fakeOwner("user1") },
+    { fetchOwnedCaseById: async () => null }
+  );
+  assert.equal(result, null);
+});
+
+test("markCaseReviewed sets lastReviewedAt on the owned case", async () => {
+  const obj = fakeCaseObject({ caseDescription: "Lap Chole" });
+  const result = await cases.markCaseReviewed(
+    { caseId: obj.id, owner: fakeOwner("user1") },
+    { fetchOwnedCaseById: async () => obj }
+  );
+  assert.ok(result.lastReviewedAt instanceof Date);
+});
+
+test("deleteCase returns false when the case isn't found/owned, without cascading", async () => {
+  let cascadeCalled = false;
+  const result = await cases.deleteCase(
+    { caseId: "nope", owner: fakeOwner("user1") },
+    {
+      fetchOwnedCaseById: async () => null,
+      deleteSessionsForCase: async () => {
+        cascadeCalled = true;
+      },
+    }
+  );
+  assert.equal(result, false);
+  assert.equal(cascadeCalled, false);
+});
+
+test("deleteCase destroys the case and cascades to its Pimp Me sessions", async () => {
+  const owner = fakeOwner("user1");
+  const obj = fakeCaseObject({ normalizedDescription: "lap chole" });
+  let cascadeArgs = null;
+  const result = await cases.deleteCase(
+    { caseId: obj.id, owner },
+    {
+      fetchOwnedCaseById: async () => obj,
+      deleteSessionsForCase: async (args) => {
+        cascadeArgs = args;
+      },
+    }
+  );
+  assert.equal(result, true);
+  assert.equal(obj.destroyed, true);
+  assert.deepEqual(cascadeArgs, { owner, normalizedDescription: "lap chole" });
+});

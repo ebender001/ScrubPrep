@@ -23,6 +23,8 @@ class FakeParseObject {
     this.className = className;
     this.attributes = {};
     this.id = undefined;
+    this.createdAt = undefined;
+    this.updatedAt = undefined;
   }
   set(key, value) {
     this.attributes[key] = value;
@@ -31,13 +33,19 @@ class FakeParseObject {
     return this.attributes[key];
   }
   async save() {
+    const now = new Date();
     if (!this.id) {
       idCounter += 1;
       this.id = `obj_${idCounter}`;
+      this.createdAt = now;
       store[this.className] = store[this.className] || {};
       store[this.className][this.id] = this;
     }
+    this.updatedAt = now;
     return this;
+  }
+  async destroy() {
+    if (store[this.className]) delete store[this.className][this.id];
   }
 }
 
@@ -74,17 +82,31 @@ class FakeParseQuery {
   }
   async find() {
     const all = Object.values(store[this.className] || {}).filter((obj) =>
-      Object.entries(this._equalTo).every(([field, value]) => obj.get(field) === value)
+      Object.entries(this._equalTo).every(([field, value]) => {
+        const actual = field === "objectId" ? obj.id : obj.get(field);
+        return actual === value;
+      })
     );
     return all.slice().sort((a, b) => {
       for (const field of this._order) {
-        const av = a.get(field);
-        const bv = b.get(field);
-        if (av < bv) return -1;
-        if (av > bv) return 1;
+        const av = field === "updatedAt" ? a.updatedAt : a.get(field);
+        const bv = field === "updatedAt" ? b.updatedAt : b.get(field);
+        const direction = this._descending && this._descending.has(field) ? -1 : 1;
+        if (av < bv) return -1 * direction;
+        if (av > bv) return 1 * direction;
       }
       return 0;
     });
+  }
+  descending(field) {
+    this._descending = this._descending || new Set();
+    this._descending.add(field);
+    this._order.push(field);
+    return this;
+  }
+  async first() {
+    const results = await this.find();
+    return results[0] || null;
   }
 }
 
@@ -105,6 +127,7 @@ global.Parse = {
     OBJECT_NOT_FOUND: 101,
     OPERATION_FORBIDDEN: 119,
     INTERNAL_SERVER_ERROR: 1,
+    INVALID_SESSION_TOKEN: 209,
   }),
   Cloud: {
     define: (name, handler) => {
@@ -195,6 +218,130 @@ test("startPimpSession -> answerPimpQuestion (non-final) -> answerPimpQuestion (
   assert.deepEqual(finalAnswer.progress, { index: 5, total: 5 });
   assert.deepEqual(finalAnswer.summary.strong, ["Indications for surgery"]);
   assert.equal(session.get("status"), "complete");
+});
+
+test("listCases/saveCase/markCaseReviewed/deleteCase require a signed-in user", async () => {
+  await assert.rejects(() => registry.listCases({ params: {}, user: undefined }), (err) => {
+    assert.equal(err.code, 209);
+    return true;
+  });
+  await assert.rejects(
+    () => registry.saveCase({ params: { caseDescription: "Lap chole", prep: {} }, user: undefined }),
+    (err) => {
+      assert.equal(err.code, 209);
+      return true;
+    }
+  );
+  await assert.rejects(
+    () => registry.markCaseReviewed({ params: { caseId: "x" }, user: undefined }),
+    (err) => {
+      assert.equal(err.code, 209);
+      return true;
+    }
+  );
+  await assert.rejects(() => registry.deleteCase({ params: { caseId: "x" }, user: undefined }), (err) => {
+    assert.equal(err.code, 209);
+    return true;
+  });
+});
+
+test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp Me sessions)", async () => {
+  const owner = { id: "user_1" };
+
+  const saved = await registry.saveCase({
+    params: { caseDescription: "Lap chole for acute cholecystitis", prep: { title: "Lap Chole" } },
+    user: owner,
+  });
+  assert.deepEqual(saved.case.prep, { title: "Lap Chole" });
+  assert.equal(saved.case.lastReviewedAt, null);
+
+  // Saving the same (normalized) case again updates in place rather than duplicating.
+  const savedAgain = await registry.saveCase({
+    params: { caseDescription: "Lap Chole For Acute Cholecystitis", prep: { title: "Lap Chole v2" } },
+    user: owner,
+  });
+  assert.equal(savedAgain.case.id, saved.case.id);
+
+  const listed = await registry.listCases({ params: {}, user: owner });
+  assert.equal(listed.cases.length, 1);
+  assert.deepEqual(listed.cases[0].prep, { title: "Lap Chole v2" });
+
+  // A different user's cases are never visible.
+  const otherOwnerListed = await registry.listCases({ params: {}, user: { id: "user_2" } });
+  assert.equal(otherOwnerListed.cases.length, 0);
+
+  const reviewed = await registry.markCaseReviewed({ params: { caseId: saved.case.id }, user: owner });
+  assert.equal(reviewed.success, true);
+
+  // A completed Pimp Me session on this same case should be cascade-deleted with it.
+  await registry.savePimpMeSession({
+    params: {
+      caseDescription: "Lap chole for acute cholecystitis",
+      difficulty: "easy",
+      transcript: [{ question: "Q", answer: "A", assessment: "correct", feedback: "f", teachingPoint: "t" }],
+      summary: { strong: [], review: [], twoMinuteReview: [] },
+    },
+    user: owner,
+  });
+  const sessionsBeforeDelete = await registry.listPimpMeSessions({
+    params: { caseDescription: "Lap chole for acute cholecystitis" },
+    user: owner,
+  });
+  assert.equal(sessionsBeforeDelete.sessions.length, 1);
+
+  const deleted = await registry.deleteCase({ params: { caseId: saved.case.id }, user: owner });
+  assert.equal(deleted.success, true);
+
+  const listedAfterDelete = await registry.listCases({ params: {}, user: owner });
+  assert.equal(listedAfterDelete.cases.length, 0);
+
+  const sessionsAfterDelete = await registry.listPimpMeSessions({
+    params: { caseDescription: "Lap chole for acute cholecystitis" },
+    user: owner,
+  });
+  assert.equal(sessionsAfterDelete.sessions.length, 0);
+
+  await assert.rejects(() => registry.deleteCase({ params: { caseId: saved.case.id }, user: owner }), (err) => {
+    assert.equal(err.code, 101);
+    return true;
+  });
+});
+
+test("savePimpMeSession overwrites the existing row for the same (case, difficulty) instead of duplicating", async () => {
+  const owner = { id: "user_3" };
+  await registry.saveCase({
+    params: { caseDescription: "CABG x3", prep: { title: "CABG" } },
+    user: owner,
+  });
+
+  await registry.savePimpMeSession({
+    params: {
+      caseDescription: "CABG x3",
+      difficulty: "tough",
+      transcript: [{ question: "Q1", answer: "A1", assessment: "correct", feedback: "f", teachingPoint: "t" }],
+      summary: { strong: [], review: [], twoMinuteReview: [] },
+    },
+    user: owner,
+  });
+  await registry.savePimpMeSession({
+    params: {
+      caseDescription: "CABG x3",
+      difficulty: "tough",
+      transcript: [
+        { question: "Q1", answer: "A1", assessment: "correct", feedback: "f", teachingPoint: "t" },
+        { question: "Q2", answer: "A2", assessment: "correct", feedback: "f", teachingPoint: "t" },
+      ],
+      summary: { strong: ["x"], review: [], twoMinuteReview: [] },
+    },
+    user: owner,
+  });
+
+  const { sessions } = await registry.listPimpMeSessions({
+    params: { caseDescription: "CABG x3" },
+    user: owner,
+  });
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].transcript.length, 2);
 });
 
 test("generateScrubPrep rejects obvious PHI before calling the AI", async () => {

@@ -16,6 +16,8 @@ cloud/
     rapidFire.js                generateRapidFire({ caseDescription, prep })
     caseTypes.js                listCaseTypes() — reads the CaseType catalog Parse class
     specialties.js              listSpecialties() — reads the Specialty catalog Parse class
+    cases.js                    a signed-in user's saved Cases (ScrubCase Parse class)
+    pimpMeSessions.js            a signed-in user's completed Pimp Me sessions (PimpMeSession Parse class)
 test/                          node:test unit tests (mock the AI client, no network/Parse needed)
 scripts/
   lib/parseRest.js               shared Parse REST API helper (used by the scripts below)
@@ -23,6 +25,7 @@ scripts/
   call-cloud-function.js        calls a deployed Cloud Function via the Parse REST API (bypasses `b4a cloud`)
   seed-specialties.js            idempotently seeds/updates the Specialty catalog via the Parse REST API
   seed-case-types.js            rebuilds the CaseType catalog (specialty as a Pointer) via the Parse REST API
+  setup-user-data-schema.js      creates/updates the ScrubCase and PimpMeSession classes with no public CLP access
 .parse.project                  Parse CLI project config (safe to commit — no secrets)
 .parse.local                    Parse CLI local config incl. Master Key — gitignored, never commit
 ```
@@ -37,6 +40,12 @@ scripts/
 | `generateRapidFire` | `{ caseDescription, prep }` | `{ questions: [{ question, answer }] }` (exactly 5) |
 | `listCaseTypes` | none | `{ caseTypes: [{ name, fullName, specialty: { id, name } \| null, featured }] }`, sorted by specialty's sortOrder then the case type's own sortOrder/name |
 | `listSpecialties` | none | `{ specialties: [{ id, name, exampleCaseDescription }] }`, sorted by sortOrder/name |
+| `listCases` | none (requires sign-in) | `{ cases: [{ id, caseDescription, prep, createdAt, updatedAt, lastReviewedAt }] }`, sorted by `updatedAt` desc |
+| `saveCase` | `{ caseDescription, prep }` (requires sign-in) | `{ case: {...} }` — inserts, or updates in place if this (normalized) case was already saved |
+| `markCaseReviewed` | `{ caseId }` (requires sign-in) | `{ success: true }` |
+| `deleteCase` | `{ caseId }` (requires sign-in) | `{ success: true }` — also deletes any completed Pimp Me sessions for that case |
+| `listPimpMeSessions` | `{ caseDescription }` (requires sign-in) | `{ sessions: [{ id, caseDescription, difficulty, transcript, summary, completedAt }] }`, every difficulty completed for that case |
+| `savePimpMeSession` | `{ caseDescription, difficulty, transcript, summary }` (requires sign-in) | `{ session: {...} }` — inserts, or overwrites the existing row for that (case, difficulty) |
 
 `difficulty` is one of `easy | typical | tough` (defaults to `typical`). Session length scales with difficulty (4 questions for easy, 5 for typical, 6 for tough).
 
@@ -44,7 +53,19 @@ scripts/
 
 The `or_prep` JSON schema (`cloud/scrubPrep/schemas.js`) requires a `recognized` boolean. The model sets it `false` (and fills every other field with honest placeholder content instead of inventing a fake operation) when the case description isn't a real, identifiable procedure — gibberish, unrelated text, etc. `cloud/scrubPrep/prep.js` turns that into an `UnrecognizedCaseError` (thrown immediately, no retry — retrying gibberish with the same prompt won't make it real), which `generateScrubPrep` in `cloud/main.js` converts into a `Parse.Error` with a custom code (`4001`) and a randomly-picked witty message (see `UNRECOGNIZED_CASE_MESSAGES`). The iOS client checks for this specific code to show the message as-is instead of a generic failure message, and — since no prep is returned — never saves it to case history.
 
-Pimp Me session state is stored server-side in a `PimpSession` Parse class (`caseDescription`, `prep`, `difficulty`, `history`, `pendingQuestion`, `status`) so the client only ever needs to hold a `sessionId`.
+Pimp Me session state is stored server-side in a `PimpSession` Parse class (`caseDescription`, `prep`, `difficulty`, `history`, `pendingQuestion`, `status`) so the client only ever needs to hold a `sessionId`. This is an **ephemeral** scratchpad for a single in-progress round — don't confuse it with `PimpMeSession` below, the persisted record of a *completed* session.
+
+### User accounts, Cases, and Pimp Me sessions
+
+Sign-up/sign-in/sign-out/password-reset go straight through Parse's built-in `_User` class (email/password) and the built-in Apple auth adapter (Sign in with Apple) — no custom Cloud Code needed for any of that. Cases (completed OR Preps) and completed Pimp Me sessions are the backend's authoritative copy (not the device): `ScrubCase` and `PimpMeSession` Parse classes, each with an `owner` (Pointer<_User>) field and a `normalizedDescription` field for case-identity dedup (at most one `ScrubCase` per (owner, normalizedDescription), at most one `PimpMeSession` per (owner, normalizedDescription, difficulty) — see `cloud/scrubPrep/cases.js` / `cloud/scrubPrep/pimpMeSessions.js`).
+
+Both classes have every Class-Level Permission locked to nobody (`find/get/create/update/delete/addField: {}`) — the six Cloud Functions above are the *only* way to reach them, all via the Master Key with ownership enforced by an explicit `owner` query constraint (the same pattern the ephemeral `PimpSession` class already uses, not Parse ACLs). Set up (or update) these two classes' schema/CLPs with:
+
+```
+node scripts/setup-user-data-schema.js
+```
+
+Safe to re-run.
 
 ### Specialty & case type catalog
 
@@ -103,7 +124,6 @@ node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Lapar
 
 ## Notes / TODOs for later phases
 
-- `ScrubCase` (completed OR Prep case history) is not yet a Parse class — v1 case history is expected to live client-side in the iOS app first (spec allows this).
 - `Specialty`/`CaseType` catalog rows must currently be seeded/edited via `scripts/seed-specialties.js` / `scripts/seed-case-types.js` or the dashboard's Database Browser — no admin UI or Cloud Function to write them yet (`listSpecialties`/`listCaseTypes` are read-only).
-- No user accounts/auth yet — `PimpSession` objects are created without an owning user and read/written via the master key from Cloud Code. Add `Parse.User` association + ACLs when accounts are introduced.
+- The ephemeral `PimpSession` class (in-progress Q&A scratchpad, see `startPimpSession`/`answerPimpQuestion`) still has no owning user and is read/written purely via the Master Key — unlike `ScrubCase`/`PimpMeSession`, it was left as-is since it holds nothing worth attributing to an account (it's discarded once a session completes and gets persisted as a `PimpMeSession`).
 - PHI detection (`schemas.containsLikelyPHI`) is intentionally minimal (a few obvious patterns) per the product spec — not a compliance-grade PHI scrubber.

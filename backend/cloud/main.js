@@ -7,6 +7,8 @@ const rapidFire = require("./scrubPrep/rapidFire");
 const schemas = require("./scrubPrep/schemas");
 const caseTypes = require("./scrubPrep/caseTypes");
 const specialties = require("./scrubPrep/specialties");
+const cases = require("./scrubPrep/cases");
+const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
@@ -74,6 +76,17 @@ function requireNonEmptyString(value, fieldName, maxLength) {
     );
   }
   return value.trim();
+}
+
+// Cases and Pimp Me sessions are per-user (backend is the single source of truth, not
+// the device) — every function that reads/writes them requires a signed-in user. Unlike
+// requireNonEmptyString's VALIDATION_ERROR, this uses INVALID_SESSION_TOKEN (209) so a
+// client can distinguish "you're not signed in" from a bad request.
+function requireUser(request) {
+  if (!request.user) {
+    throw new Parse.Error(Parse.Error.INVALID_SESSION_TOKEN, "Please sign in and try again.");
+  }
+  return request.user;
 }
 
 function assertNoPHI(caseDescription) {
@@ -292,5 +305,90 @@ Parse.Cloud.define(
       previousQuestions,
     });
     return { questions };
+  })
+);
+
+Parse.Cloud.define(
+  "listCases",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const items = await cases.listCasesForOwner(user);
+    return { cases: items };
+  })
+);
+
+Parse.Cloud.define(
+  "saveCase",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseDescription = requireNonEmptyString(
+      request.params.caseDescription,
+      "caseDescription",
+      MAX_CASE_DESCRIPTION_LENGTH
+    );
+    const { prep: prepContext } = request.params;
+    const savedCase = await cases.upsertCase({ owner: user, caseDescription, prep: prepContext });
+    return { case: savedCase };
+  })
+);
+
+Parse.Cloud.define(
+  "markCaseReviewed",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseId = requireNonEmptyString(request.params.caseId, "caseId");
+    const updated = await cases.markCaseReviewed({ caseId, owner: user });
+    if (!updated) {
+      throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, "This case was not found.");
+    }
+    return { success: true };
+  })
+);
+
+Parse.Cloud.define(
+  "deleteCase",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseId = requireNonEmptyString(request.params.caseId, "caseId");
+    const deleted = await cases.deleteCase({ caseId, owner: user });
+    if (!deleted) {
+      throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, "This case was not found.");
+    }
+    return { success: true };
+  })
+);
+
+Parse.Cloud.define(
+  "listPimpMeSessions",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseDescription = requireNonEmptyString(
+      request.params.caseDescription,
+      "caseDescription",
+      MAX_CASE_DESCRIPTION_LENGTH
+    );
+    const sessions = await pimpMeSessions.listSessionsForCase({ owner: user, caseDescription });
+    return { sessions };
+  })
+);
+
+Parse.Cloud.define(
+  "savePimpMeSession",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseDescription = requireNonEmptyString(
+      request.params.caseDescription,
+      "caseDescription",
+      MAX_CASE_DESCRIPTION_LENGTH
+    );
+    const { difficulty, transcript, summary } = request.params;
+    const session = await pimpMeSessions.upsertSession({
+      owner: user,
+      caseDescription,
+      difficulty: difficulty || "typical",
+      transcript,
+      summary,
+    });
+    return { session };
   })
 );
