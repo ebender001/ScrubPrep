@@ -230,7 +230,7 @@ final class HomeViewModel: ObservableObject {
 
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
-                try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
+                _ = try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
                 isGenerating = false
                 onReady(prep)
             } catch {

@@ -3,7 +3,9 @@ import Foundation
 /// A saved Case (completed OR Prep), sourced from the backend's `listCases`/`saveCase`
 /// Cloud Functions — the backend is the single source of truth, not the device (see
 /// `CaseHistoryStore`). At most one per (normalized) case description per account.
-struct ScrubCase: Codable, Identifiable, Hashable {
+/// `nonisolated`: see ORPrep's note — crosses actor boundaries as a ParseCloudable
+/// ReturnType/nested payload decoded on ParseSwift's background executor.
+nonisolated struct ScrubCase: Codable, Identifiable, Hashable {
     let id: String
     let caseDescription: String
     let prep: ORPrep
@@ -21,7 +23,10 @@ struct ScrubCase: Codable, Identifiable, Hashable {
     // Dates arrive as plain ISO8601 strings (see backend/cloud/scrubPrep/cases.js) rather
     // than relying on however ParseCloudable's decoder would otherwise handle a native
     // Date — parsed defensively here instead of trusting an untested decoding path.
-    private static let isoFormatter: ISO8601DateFormatter = {
+    // `nonisolated(unsafe)`: ISO8601DateFormatter isn't Sendable, but this instance is
+    // only ever used for read-only string(from:)/date(from:) calls after configuration,
+    // which is safe to share across threads in practice.
+    nonisolated(unsafe) private static let isoFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter

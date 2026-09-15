@@ -10,14 +10,20 @@ private let unrecognizedCaseErrorCode = 4001
 //
 // Each conforms to ParseCloudable: `functionJobName` names the deployed Cloud Function
 // (see backend/cloud/main.js) and every other stored property becomes a request parameter.
+//
+// `nonisolated`: this project defaults new types to MainActor isolation (see ORPrep's
+// equivalent note), but ParseCloudable's `runFunction()` encodes/decodes on ParseSwift's
+// own background executor — a MainActor-isolated conformance can't be used from there
+// under strict concurrency checking ("Main actor-isolated conformance ... cannot be used
+// in @concurrent context; this is an error in the Swift 6 language mode").
 
-private struct GenerateScrubPrepRequest: ParseCloudable {
+nonisolated private struct GenerateScrubPrepRequest: ParseCloudable {
     typealias ReturnType = ORPrep
     var functionJobName = "generateScrubPrep"
     let caseDescription: String
 }
 
-private struct StartPimpSessionRequest: ParseCloudable {
+nonisolated private struct StartPimpSessionRequest: ParseCloudable {
     typealias ReturnType = PimpSessionStart
     var functionJobName = "startPimpSession"
     let caseDescription: String
@@ -25,14 +31,14 @@ private struct StartPimpSessionRequest: ParseCloudable {
     let difficulty: PimpDifficulty
 }
 
-private struct AnswerPimpQuestionRequest: ParseCloudable {
+nonisolated private struct AnswerPimpQuestionRequest: ParseCloudable {
     typealias ReturnType = PimpAnswerResult
     var functionJobName = "answerPimpQuestion"
     let sessionId: String
     let answer: String
 }
 
-private struct GenerateRapidFireRequest: ParseCloudable {
+nonisolated private struct GenerateRapidFireRequest: ParseCloudable {
     typealias ReturnType = RapidFireResult
     var functionJobName = "generateRapidFire"
     let caseDescription: String
@@ -40,67 +46,67 @@ private struct GenerateRapidFireRequest: ParseCloudable {
     let previousQuestions: [String]
 }
 
-private struct ListCaseTypesRequest: ParseCloudable {
+nonisolated private struct ListCaseTypesRequest: ParseCloudable {
     typealias ReturnType = CaseTypeCatalog
     var functionJobName = "listCaseTypes"
 }
 
-private struct ListSpecialtiesRequest: ParseCloudable {
+nonisolated private struct ListSpecialtiesRequest: ParseCloudable {
     typealias ReturnType = SpecialtyCatalog
     var functionJobName = "listSpecialties"
 }
 
-private struct CaseCatalog: Codable {
+nonisolated private struct CaseCatalog: Codable {
     let cases: [ScrubCase]
 }
 
-private struct SaveCaseResult: Codable {
+nonisolated private struct SaveCaseResult: Codable {
     let `case`: ScrubCase
 }
 
-private struct SuccessResult: Codable {
+nonisolated private struct SuccessResult: Codable {
     let success: Bool
 }
 
-private struct PimpMeSessionCatalog: Codable {
+nonisolated private struct PimpMeSessionCatalog: Codable {
     let sessions: [PimpMeSession]
 }
 
-private struct SavePimpMeSessionResult: Codable {
+nonisolated private struct SavePimpMeSessionResult: Codable {
     let session: PimpMeSession
 }
 
-private struct ListCasesRequest: ParseCloudable {
+nonisolated private struct ListCasesRequest: ParseCloudable {
     typealias ReturnType = CaseCatalog
     var functionJobName = "listCases"
 }
 
-private struct SaveCaseRequest: ParseCloudable {
+nonisolated private struct SaveCaseRequest: ParseCloudable {
     typealias ReturnType = SaveCaseResult
     var functionJobName = "saveCase"
     let caseDescription: String
     let prep: ORPrep
 }
 
-private struct MarkCaseReviewedRequest: ParseCloudable {
+nonisolated private struct MarkCaseReviewedRequest: ParseCloudable {
     typealias ReturnType = SuccessResult
     var functionJobName = "markCaseReviewed"
     let caseId: String
 }
 
-private struct DeleteCaseRequest: ParseCloudable {
+nonisolated private struct DeleteCaseRequest: ParseCloudable {
     typealias ReturnType = SuccessResult
     var functionJobName = "deleteCase"
     let caseId: String
 }
 
-private struct ListPimpMeSessionsRequest: ParseCloudable {
+nonisolated private struct ListPimpMeSessionsRequest: ParseCloudable {
     typealias ReturnType = PimpMeSessionCatalog
     var functionJobName = "listPimpMeSessions"
     let caseDescription: String
 }
 
-private struct SavePimpMeSessionRequest: ParseCloudable {
+nonisolated private struct SavePimpMeSessionRequest: ParseCloudable {
     typealias ReturnType = SavePimpMeSessionResult
     var functionJobName = "savePimpMeSession"
     let caseDescription: String
@@ -181,6 +187,7 @@ struct ParseScrubPrepService: ScrubPrepServicing {
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:
     /// never show raw backend errors to the student). `.unrecognizedCase` is the one
     /// deliberate exception — that message is meant to be shown verbatim.
+    @discardableResult
     private func run<T>(_ operation: () async throws -> T) async throws -> T {
         do {
             return try await operation()

@@ -191,7 +191,7 @@ final class PimpMeViewModel: ObservableObject {
             let completedTranscript = history
             let completedDifficultyLevel = difficulty
             Task {
-                try? await sessionStore.save(
+                _ = try? await sessionStore.save(
                     caseDescription: caseDescription,
                     difficulty: completedDifficultyLevel,
                     transcript: completedTranscript,

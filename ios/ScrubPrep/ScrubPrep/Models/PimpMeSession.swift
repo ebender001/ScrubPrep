@@ -4,7 +4,9 @@ import Foundation
 /// backend's `listPimpMeSessions`/`savePimpMeSession` Cloud Functions — the backend is
 /// the single source of truth, not the device (see `PimpMeSessionStore`). At most one
 /// per (normalized case description, difficulty) per account.
-struct PimpMeSession: Codable, Identifiable, Hashable {
+/// `nonisolated`: see ORPrep's note — crosses actor boundaries as a ParseCloudable
+/// ReturnType/nested payload decoded on ParseSwift's background executor.
+nonisolated struct PimpMeSession: Codable, Identifiable, Hashable {
     let id: String
     let caseDescription: String
     let difficulty: PimpDifficulty
@@ -17,8 +19,9 @@ struct PimpMeSession: Codable, Identifiable, Hashable {
         case completedAtRaw = "completedAt"
     }
 
-    // See ScrubCase's isoFormatter comment — same reasoning applies here.
-    private static let isoFormatter: ISO8601DateFormatter = {
+    // See ScrubCase's isoFormatter comment — same reasoning applies here, including
+    // `nonisolated(unsafe)` for the same not-Sendable-but-read-only-safe reason.
+    nonisolated(unsafe) private static let isoFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter

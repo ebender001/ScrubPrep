@@ -2,7 +2,9 @@ import Foundation
 
 /// A specialty from the server-side catalog (see backend/cloud/scrubPrep/specialties.js),
 /// shown as a filter row on the Home screen.
-struct Specialty: Codable, Identifiable {
+// `nonisolated`: see ORPrep's note — these cross actor boundaries as ParseCloudable
+// ReturnTypes/nested payloads decoded on ParseSwift's background executor.
+nonisolated struct Specialty: Codable, Identifiable {
     let id: String
     let name: String
     /// Backend-owned example shown in the case-entry field once this specialty is
@@ -29,7 +31,7 @@ extension Specialty: Equatable, Hashable {
 }
 
 /// Response shape from `listSpecialties`.
-struct SpecialtyCatalog: Codable {
+nonisolated struct SpecialtyCatalog: Codable {
     let specialties: [Specialty]
 }
 
@@ -53,7 +55,7 @@ extension Specialty {
 /// colloquial chip label (e.g. "Lap Chole"); `fullName` is the proper clinical name
 /// inserted into the case description field when the chip is tapped (e.g. "Laparoscopic
 /// Cholecystectomy") — identical to `name` when there's no common abbreviation.
-struct CaseType: Codable, Identifiable, Hashable {
+nonisolated struct CaseType: Codable, Identifiable, Hashable {
     var id: String { name }
     let name: String
     let fullName: String
@@ -62,6 +64,6 @@ struct CaseType: Codable, Identifiable, Hashable {
 }
 
 /// Response shape from `listCaseTypes`.
-struct CaseTypeCatalog: Codable {
+nonisolated struct CaseTypeCatalog: Codable {
     let caseTypes: [CaseType]
 }

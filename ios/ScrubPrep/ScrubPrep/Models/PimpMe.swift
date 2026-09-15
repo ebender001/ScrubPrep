@@ -1,6 +1,14 @@
 import Foundation
 
-enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
+// `nonisolated`: this project defaults new types to MainActor isolation, but these are
+// plain Codable/Hashable payloads that cross actor boundaries — as ParseCloudable
+// ReturnTypes decoded on ParseSwift's background executor, and as stored properties
+// whose own Hashable/Equatable conformances get pulled into a ParseCloudable request
+// struct's synthesized Hashable conformance (ParseCloudable itself requires Hashable).
+// A MainActor-isolated conformance can't be used from a nonisolated/concurrent context
+// under strict concurrency checking (see ORPrep's equivalent note).
+
+nonisolated enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
     case easy
     case typical
     case tough
@@ -24,19 +32,19 @@ enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-enum PimpAssessment: String, Codable {
+nonisolated enum PimpAssessment: String, Codable {
     case correct
     case partiallyCorrect = "partially_correct"
     case incorrect
 }
 
-struct PimpProgress: Codable, Hashable {
+nonisolated struct PimpProgress: Codable, Hashable {
     let index: Int
     let total: Int
 }
 
 /// Response shape from `startPimpSession`.
-struct PimpSessionStart: Codable {
+nonisolated struct PimpSessionStart: Codable {
     let sessionId: String
     let question: String
     let progress: PimpProgress
@@ -44,14 +52,14 @@ struct PimpSessionStart: Codable {
 }
 
 /// The end-of-session readiness summary, present on the final `answerPimpQuestion` response.
-struct PimpSummary: Codable, Hashable {
+nonisolated struct PimpSummary: Codable, Hashable {
     let strong: [String]
     let review: [String]
     let twoMinuteReview: [String]
 }
 
 /// Response shape from `answerPimpQuestion`.
-struct PimpAnswerResult: Codable {
+nonisolated struct PimpAnswerResult: Codable {
     let sessionId: String
     let assessment: PimpAssessment
     let feedback: String
@@ -64,7 +72,7 @@ struct PimpAnswerResult: Codable {
 
 /// One completed turn in a Pimp Me session, kept client-side for display/history.
 /// Codable so a completed session's transcript can be persisted (see PimpMeSession).
-struct PimpTurn: Identifiable, Hashable, Codable {
+nonisolated struct PimpTurn: Identifiable, Hashable, Codable {
     let id: UUID
     let question: String
     let answer: String
