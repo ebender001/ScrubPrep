@@ -165,7 +165,7 @@ struct SignInView: View {
                 return
             }
             Task {
-                await authViewModel.signInWithApple(userIdentifier: credential.user, identityToken: tokenData)
+                await authViewModel.signInWithApple(userIdentifier: credential.user, identityToken: tokenData, email: credential.email)
             }
         case .failure(let error):
             // Don't surface the user simply dismissing the Apple sheet as an error.

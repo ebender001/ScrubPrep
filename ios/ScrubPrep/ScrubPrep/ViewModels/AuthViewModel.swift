@@ -25,11 +25,25 @@ final class AuthViewModel: ObservableObject {
         currentUser = User.current
     }
 
-    func signInWithApple(userIdentifier: String, identityToken: Data) async {
+    /// `email` comes from `ASAuthorizationAppleIDCredential.email`, which Apple only
+    /// includes on the very first authorization ever for this app — every later sign-in
+    /// omits it. Captured best-effort right now (silently, no "check your inbox" alert —
+    /// Apple's own Face ID/Touch ID auth already establishes identity trust, so
+    /// re-verifying that email would just be redundant) purely so About can show "Signed
+    /// in as ___" instead of the generic fallback; if this save fails, or if the user
+    /// picked "Hide My Email" so it's an Apple private-relay address, either is fine.
+    func signInWithApple(userIdentifier: String, identityToken: Data, email: String?) async {
         isLoading = true
         errorMessage = nil
         do {
-            currentUser = try await User.apple.login(user: userIdentifier, identityToken: identityToken)
+            var user = try await User.apple.login(user: userIdentifier, identityToken: identityToken)
+            if let email, user.email == nil {
+                user.email = email
+                if let updated = try? await user.save() {
+                    user = updated
+                }
+            }
+            currentUser = user
         } catch {
             errorMessage = friendlyMessage(for: error)
         }
