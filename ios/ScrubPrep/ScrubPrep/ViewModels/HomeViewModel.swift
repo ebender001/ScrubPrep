@@ -9,6 +9,12 @@ final class HomeViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
+    // Set when Pimp Me is started directly from Home (rather than from an already-open
+    // PrepView, which already has its prep and doesn't need this): the case is prepared
+    // first — reusing the same generate-or-reuse-cached-prep logic as Prepare Me — then
+    // this flag drives navigation straight into the interactive session instead of PrepView.
+    @Published var pimpMePrep: ORPrep?
+    @Published var navigateToPimpMe = false
 
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
     // chips until the user picks one from the specialty row (spec: specialty selection is
@@ -126,6 +132,27 @@ final class HomeViewModel: ObservableObject {
     }
 
     func prepareCase() {
+        resolvePrep { [weak self] prep in
+            self?.generatedPrep = prep
+            self?.navigateToPrep = true
+        }
+    }
+
+    /// Pimp Me tapped directly from Home (rather than from PrepView, which already has a
+    /// prep): prepares the case exactly like Prepare Me, then heads into the interactive
+    /// session instead of PrepView.
+    func startPimpMe() {
+        resolvePrep { [weak self] prep in
+            self?.pimpMePrep = prep
+            self?.navigateToPimpMe = true
+        }
+    }
+
+    /// Resolves an `ORPrep` for the current `caseDescription` — reusing a cached one from
+    /// history if this exact case was already prepared, otherwise generating a new one —
+    /// then hands it to `onReady`. Shared by `prepareCase()` and `startPimpMe()`, which
+    /// only differ in where they navigate once the prep is available.
+    private func resolvePrep(onReady: @escaping (ORPrep) -> Void) {
         let trimmed = caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -136,8 +163,7 @@ final class HomeViewModel: ObservableObject {
         // cache, so this works even the first time a case is re-entered after relaunch.
         if let existing = historyStore.find(caseDescription: trimmed) {
             historyStore.markReviewed(existing)
-            generatedPrep = existing.prep
-            navigateToPrep = true
+            onReady(existing.prep)
             return
         }
 
@@ -151,9 +177,8 @@ final class HomeViewModel: ObservableObject {
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
-                generatedPrep = prep
                 isGenerating = false
-                navigateToPrep = true
+                onReady(prep)
             } catch {
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 isGenerating = false

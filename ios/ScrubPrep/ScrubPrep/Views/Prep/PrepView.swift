@@ -54,7 +54,7 @@ struct PrepView: View {
     private var actionButtons: some View {
         VStack(spacing: 10) {
             NavigationLink {
-                PimpMePlaceholderView(caseDescription: caseDescription, prep: prep)
+                PimpMeView(caseDescription: caseDescription, prep: prep)
             } label: {
                 Label("Pimp Me", systemImage: "flame.fill")
                     .font(.headline)

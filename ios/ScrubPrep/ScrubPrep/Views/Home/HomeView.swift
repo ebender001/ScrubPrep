@@ -44,7 +44,9 @@ struct HomeView: View {
                     )
 
                     VStack(spacing: 12) {
-                        NavigationLink(value: HomeRoute.pimpMe) {
+                        Button {
+                            viewModel.startPimpMe()
+                        } label: {
                             ActionCard(
                                 title: "Pimp Me",
                                 subtitle: "Test me before I scrub.",
@@ -92,8 +94,6 @@ struct HomeView: View {
             .navigationTitle("Scrub Prep")
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .pimpMe:
-                    PimpMePlaceholderView(caseDescription: nil, prep: nil)
                 case .rapidFire:
                     RapidFirePlaceholderView(caseDescription: nil, prep: nil)
                 case .firstDay:
@@ -103,6 +103,11 @@ struct HomeView: View {
             .navigationDestination(isPresented: $viewModel.navigateToPrep) {
                 if let prep = viewModel.generatedPrep {
                     PrepView(caseDescription: viewModel.caseDescription, prep: prep)
+                }
+            }
+            .navigationDestination(isPresented: $viewModel.navigateToPimpMe) {
+                if let prep = viewModel.pimpMePrep {
+                    PimpMeView(caseDescription: viewModel.caseDescription, prep: prep)
                 }
             }
             .overlay {
@@ -148,7 +153,12 @@ struct HomeView: View {
                         viewModel.caseDescription = scrubCase.caseDescription
                         viewModel.navigateToPrep = true
                     },
-                    onPimpMe: {}
+                    onPimpMe: {
+                        historyStore.markReviewed(scrubCase)
+                        viewModel.caseDescription = scrubCase.caseDescription
+                        viewModel.pimpMePrep = scrubCase.prep
+                        viewModel.navigateToPimpMe = true
+                    }
                 )
             }
         }
@@ -156,7 +166,6 @@ struct HomeView: View {
 }
 
 enum HomeRoute: Hashable {
-    case pimpMe
     case rapidFire
     case firstDay
 }
