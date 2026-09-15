@@ -13,6 +13,18 @@ private let abbreviationTopics: [LearnTopic] = [
         ]
     ),
     LearnTopic(
+        title: "Vitals & Labs",
+        systemImage: "waveform.path.ecg",
+        items: [
+            "BP / HR / RR / SpO2 — blood pressure / heart rate / respiratory rate / oxygen saturation.",
+            "Tmax — maximum recorded temperature.",
+            "Hgb / Hct — hemoglobin / hematocrit.",
+            "WBC — white blood cell count.",
+            "Cr / BUN — creatinine / blood urea nitrogen (kidney function).",
+            "Na / K — sodium / potassium.",
+        ]
+    ),
+    LearnTopic(
         title: "Perioperative",
         systemImage: "clock.arrow.circlepath",
         items: [
@@ -31,6 +43,10 @@ private let abbreviationTopics: [LearnTopic] = [
             "A&P — assessment and plan.",
             "ROS — review of systems.",
             "WNL — within normal limits.",
+            "NKDA — no known drug allergies.",
+            "c/o — complains of.",
+            "s/p — status post (after a prior procedure or event).",
+            "DC / D/C — discharge, or discontinue (context-dependent).",
         ]
     ),
     LearnTopic(
