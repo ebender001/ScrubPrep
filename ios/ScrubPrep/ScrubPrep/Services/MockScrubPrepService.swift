@@ -207,6 +207,108 @@ final class MockScrubPrepService: ScrubPrepServicing {
         return MockScrubPrepService.mockSpecialties
     }
 
+    // MARK: - Cases / Pimp Me sessions (in-memory only, not persisted across launches —
+    // the real backend is what actually persists this data; this just lets previews/dev
+    // exercise the same flows without hitting the network).
+
+    private var mockCases: [ScrubCase] = []
+    private var mockPimpMeSessions: [PimpMeSession] = []
+
+    func listCases() async throws -> [ScrubCase] {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return mockCases.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let normalized = ScrubCase.normalize(caseDescription)
+        if let index = mockCases.firstIndex(where: { ScrubCase.normalize($0.caseDescription) == normalized }) {
+            let existing = mockCases[index]
+            let updated = ScrubCase(
+                id: existing.id,
+                caseDescription: caseDescription,
+                prep: prep,
+                createdAt: existing.createdAt,
+                updatedAt: Date(),
+                lastReviewedAt: nil
+            )
+            mockCases[index] = updated
+            return updated
+        }
+        let newCase = ScrubCase(
+            id: UUID().uuidString,
+            caseDescription: caseDescription,
+            prep: prep,
+            createdAt: Date(),
+            updatedAt: Date(),
+            lastReviewedAt: nil
+        )
+        mockCases.append(newCase)
+        return newCase
+    }
+
+    func markCaseReviewed(caseId: String) async throws {
+        try await Task.sleep(nanoseconds: 100_000_000)
+        guard let index = mockCases.firstIndex(where: { $0.id == caseId }) else { return }
+        let existing = mockCases[index]
+        mockCases[index] = ScrubCase(
+            id: existing.id,
+            caseDescription: existing.caseDescription,
+            prep: existing.prep,
+            createdAt: existing.createdAt,
+            updatedAt: existing.updatedAt,
+            lastReviewedAt: Date()
+        )
+    }
+
+    func deleteCase(caseId: String) async throws {
+        try await Task.sleep(nanoseconds: 100_000_000)
+        guard let removed = mockCases.first(where: { $0.id == caseId }) else { return }
+        mockCases.removeAll { $0.id == caseId }
+        let normalized = ScrubCase.normalize(removed.caseDescription)
+        mockPimpMeSessions.removeAll { ScrubCase.normalize($0.caseDescription) == normalized }
+    }
+
+    func listPimpMeSessions(caseDescription: String) async throws -> [PimpMeSession] {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let normalized = ScrubCase.normalize(caseDescription)
+        return mockPimpMeSessions.filter { ScrubCase.normalize($0.caseDescription) == normalized }
+    }
+
+    func savePimpMeSession(
+        caseDescription: String,
+        difficulty: PimpDifficulty,
+        transcript: [PimpTurn],
+        summary: PimpSummary
+    ) async throws -> PimpMeSession {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let normalized = ScrubCase.normalize(caseDescription)
+        if let index = mockPimpMeSessions.firstIndex(where: {
+            ScrubCase.normalize($0.caseDescription) == normalized && $0.difficulty == difficulty
+        }) {
+            let updated = PimpMeSession(
+                id: mockPimpMeSessions[index].id,
+                caseDescription: caseDescription,
+                difficulty: difficulty,
+                transcript: transcript,
+                summary: summary,
+                completedAt: Date()
+            )
+            mockPimpMeSessions[index] = updated
+            return updated
+        }
+        let newSession = PimpMeSession(
+            id: UUID().uuidString,
+            caseDescription: caseDescription,
+            difficulty: difficulty,
+            transcript: transcript,
+            summary: summary,
+            completedAt: Date()
+        )
+        mockPimpMeSessions.append(newSession)
+        return newSession
+    }
+
     private static func questionTarget(for difficulty: PimpDifficulty) -> Int {
         switch difficulty {
         case .easy: return 4

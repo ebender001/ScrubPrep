@@ -1,13 +1,10 @@
-import SwiftData
 import SwiftUI
 
 /// Bottom tab bar: Home | Cases | Learn | About (spec §3).
 struct RootTabView: View {
-    @Environment(\.modelContext) private var modelContext
-
     var body: some View {
         TabView {
-            HomeView(historyStore: CaseHistoryStore(modelContext: modelContext))
+            HomeView()
                 .tabItem { Label("Home", systemImage: "house.fill") }
 
             CasesListView()
@@ -23,7 +20,6 @@ struct RootTabView: View {
 }
 
 #Preview {
-    let container = try! ModelContainer(for: ScrubCase.self, PimpMeSession.self, configurations: .init(isStoredInMemoryOnly: true))
     RootTabView()
-        .modelContainer(container)
+        .environmentObject(AuthViewModel())
 }

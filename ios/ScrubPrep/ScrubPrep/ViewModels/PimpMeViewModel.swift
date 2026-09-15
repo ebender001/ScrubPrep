@@ -58,44 +58,48 @@ final class PimpMeViewModel: ObservableObject {
     /// Difficulties already completed for this case, across all sessions ever taken —
     /// drives the "locked, tap to review" state on the difficulty picker.
     @Published private(set) var completedDifficulties: Set<PimpDifficulty> = []
+    /// True until the initial fetch of completed difficulties finishes — the difficulty
+    /// picker waits for this so it doesn't flash "everything unlocked" for a moment
+    /// before locking the ones already completed.
+    @Published private(set) var isLoadingCompletedDifficulties = true
 
     private let service: ScrubPrepServicing
-    private var sessionStore: PimpMeSessionStore?
+    private let sessionStore: PimpMeSessionStore
     private var sessionId: String?
 
     init(caseDescription: String, prep: ORPrep, service: ScrubPrepServicing? = nil) {
+        let resolvedService = service ?? ScrubPrepServiceFactory.make()
         self.caseDescription = caseDescription
         self.prep = prep
-        self.service = service ?? ScrubPrepServiceFactory.make()
+        self.service = resolvedService
+        self.sessionStore = PimpMeSessionStore(service: resolvedService)
+        Task { await self.loadCompletedDifficulties() }
     }
 
-    /// Wires up SwiftData persistence. Called once the view's `modelContext` is available
-    /// (not yet resolved at `init` time — see HomeViewModel's analogous historyStore note).
-    func attachSessionStore(_ store: PimpMeSessionStore) {
-        guard sessionStore == nil else { return }
-        sessionStore = store
-        completedDifficulties = store.completedDifficulties(forCaseDescription: caseDescription)
-
-        // Default selection should land on something startable, not a level already done.
-        if completedDifficulties.contains(difficulty) {
-            if let firstRemaining = PimpDifficulty.allCases.first(where: { !completedDifficulties.contains($0) }) {
+    private func loadCompletedDifficulties() async {
+        if let fetched = try? await sessionStore.completedDifficulties(forCaseDescription: caseDescription) {
+            completedDifficulties = fetched
+            // Default selection should land on something startable, not a level already done.
+            if completedDifficulties.contains(difficulty),
+               let firstRemaining = PimpDifficulty.allCases.first(where: { !completedDifficulties.contains($0) }) {
                 difficulty = firstRemaining
             }
         }
+        isLoadingCompletedDifficulties = false
     }
 
     /// Tapping a difficulty row: if it's already completed, show its saved transcript;
     /// otherwise just select it as the level to start.
     func selectDifficulty(_ level: PimpDifficulty) {
         if completedDifficulties.contains(level) {
-            showTranscript(for: level)
+            Task { await showTranscript(for: level) }
         } else {
             difficulty = level
         }
     }
 
-    private func showTranscript(for level: PimpDifficulty) {
-        guard let session = sessionStore?.find(caseDescription: caseDescription, difficulty: level) else { return }
+    private func showTranscript(for level: PimpDifficulty) async {
+        guard let session = try? await sessionStore.find(caseDescription: caseDescription, difficulty: level) else { return }
         phase = .reviewingTranscript(difficulty: level, transcript: session.transcript, summary: session.summary)
     }
 
@@ -175,18 +179,25 @@ final class PimpMeViewModel: ObservableObject {
     }
 
     /// Advances from the feedback shown after an answer to the next question, or — if
-    /// this was the final question — completes and saves the session.
+    /// this was the final question — completes the session. The summary shows
+    /// immediately rather than waiting on the save — it's a best-effort background
+    /// persist (same "don't block the primary flow on a decorative write" reasoning as
+    /// markCaseReviewed elsewhere), so a network hiccup here doesn't stall the student.
     func continueToNextQuestion() {
         if let summary = pendingSummary {
             phase = .completed(summary)
-            sessionStore?.save(
-                caseDescription: caseDescription,
-                difficulty: difficulty,
-                transcript: history,
-                summary: summary
-            )
             completedDifficulties.insert(difficulty)
             pendingSummary = nil
+            let completedTranscript = history
+            let completedDifficultyLevel = difficulty
+            Task {
+                try? await sessionStore.save(
+                    caseDescription: caseDescription,
+                    difficulty: completedDifficultyLevel,
+                    transcript: completedTranscript,
+                    summary: summary
+                )
+            }
         } else {
             phase = .answering
         }

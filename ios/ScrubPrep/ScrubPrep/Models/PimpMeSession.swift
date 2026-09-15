@@ -1,51 +1,39 @@
 import Foundation
-import SwiftData
 
-/// A completed Pimp Me session for one (case, difficulty) pair, persisted locally via
-/// SwiftData so it can be reviewed later instead of being lost once the interactive view
-/// is dismissed. At most one per (normalized case description, difficulty) — see
-/// PimpMeSessionStore.save, which overwrites rather than duplicates.
-///
-/// Stores the transcript/summary as encoded JSON blobs rather than letting SwiftData
-/// decompose them into composite attributes — the same reasoning as ScrubCase.prepData:
-/// this project has already been burned once by a SwiftData/Codable property-name
-/// mismatch crash, so nested Codable types are round-tripped through Data here instead.
-@Model
-final class PimpMeSession {
-    var id: UUID = UUID()
-    var caseDescription: String = ""
-    var normalizedDescription: String = ""
-    var difficultyRawValue: String = PimpDifficulty.typical.rawValue
-    var completedAt: Date = Date()
+/// A completed Pimp Me session for one (case, difficulty) pair, sourced from the
+/// backend's `listPimpMeSessions`/`savePimpMeSession` Cloud Functions — the backend is
+/// the single source of truth, not the device (see `PimpMeSessionStore`). At most one
+/// per (normalized case description, difficulty) per account.
+struct PimpMeSession: Codable, Identifiable, Hashable {
+    let id: String
+    let caseDescription: String
+    let difficulty: PimpDifficulty
+    let transcript: [PimpTurn]
+    let summary: PimpSummary
+    private let completedAtRaw: String
 
-    private var transcriptData: Data = Data()
-    private var summaryData: Data = Data()
-
-    var difficulty: PimpDifficulty {
-        get { PimpDifficulty(rawValue: difficultyRawValue) ?? .typical }
-        set { difficultyRawValue = newValue.rawValue }
+    enum CodingKeys: String, CodingKey {
+        case id, caseDescription, difficulty, transcript, summary
+        case completedAtRaw = "completedAt"
     }
 
-    var transcript: [PimpTurn] {
-        get { (try? JSONDecoder().decode([PimpTurn].self, from: transcriptData)) ?? [] }
-        set { transcriptData = (try? JSONEncoder().encode(newValue)) ?? Data() }
-    }
+    // See ScrubCase's isoFormatter comment — same reasoning applies here.
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
-    var summary: PimpSummary {
-        get {
-            (try? JSONDecoder().decode(PimpSummary.self, from: summaryData))
-                ?? PimpSummary(strong: [], review: [], twoMinuteReview: [])
-        }
-        set { summaryData = (try? JSONEncoder().encode(newValue)) ?? Data() }
-    }
+    var completedAt: Date { Self.isoFormatter.date(from: completedAtRaw) ?? Date() }
 
-    init(caseDescription: String, difficulty: PimpDifficulty, transcript: [PimpTurn], summary: PimpSummary, completedAt: Date = Date()) {
-        self.id = UUID()
+    // See ScrubCase's equivalent initializer comment — the synthesized memberwise init
+    // would be `private` since completedAtRaw is private.
+    init(id: String, caseDescription: String, difficulty: PimpDifficulty, transcript: [PimpTurn], summary: PimpSummary, completedAt: Date) {
+        self.id = id
         self.caseDescription = caseDescription
-        self.normalizedDescription = ScrubCase.normalize(caseDescription)
-        self.difficultyRawValue = difficulty.rawValue
-        self.completedAt = completedAt
-        self.transcriptData = (try? JSONEncoder().encode(transcript)) ?? Data()
-        self.summaryData = (try? JSONEncoder().encode(summary)) ?? Data()
+        self.difficulty = difficulty
+        self.transcript = transcript
+        self.summary = summary
+        self.completedAtRaw = Self.isoFormatter.string(from: completedAt)
     }
 }

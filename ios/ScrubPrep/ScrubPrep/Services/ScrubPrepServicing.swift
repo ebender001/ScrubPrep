@@ -9,6 +9,20 @@ protocol ScrubPrepServicing {
     func generateRapidFire(caseDescription: String, prep: ORPrep, previousQuestions: [String]) async throws -> RapidFireResult
     func listCaseTypes() async throws -> [CaseType]
     func listSpecialties() async throws -> [Specialty]
+
+    // Cases and Pimp Me sessions are backend-authoritative (not stored on the device) —
+    // every one of these requires a signed-in user server-side.
+    func listCases() async throws -> [ScrubCase]
+    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase
+    func markCaseReviewed(caseId: String) async throws
+    func deleteCase(caseId: String) async throws
+    func listPimpMeSessions(caseDescription: String) async throws -> [PimpMeSession]
+    func savePimpMeSession(
+        caseDescription: String,
+        difficulty: PimpDifficulty,
+        transcript: [PimpTurn],
+        summary: PimpSummary
+    ) async throws -> PimpMeSession
 }
 
 /// Errors surfaced to the UI. Kept generic and friendly per spec §20 — never show raw

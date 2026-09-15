@@ -1,42 +1,46 @@
 import Foundation
-import SwiftData
 
-/// A completed OR Prep, persisted locally via SwiftData (spec §11 — case history is
-/// client-side for v1). Never more than one entry per (normalized) case description —
-/// see CaseHistoryStore.addOrUpdate, which updates + re-dates an existing match instead
-/// of inserting a duplicate.
-@Model
-final class ScrubCase {
-    var id: UUID = UUID()
-    var caseDescription: String = ""
-    var normalizedDescription: String = ""
-    var createdAt: Date = Date()
-    var lastReviewedAt: Date?
+/// A saved Case (completed OR Prep), sourced from the backend's `listCases`/`saveCase`
+/// Cloud Functions — the backend is the single source of truth, not the device (see
+/// `CaseHistoryStore`). At most one per (normalized) case description per account.
+struct ScrubCase: Codable, Identifiable, Hashable {
+    let id: String
+    let caseDescription: String
+    let prep: ORPrep
+    private let createdAtRaw: String
+    private let updatedAtRaw: String
+    private let lastReviewedAtRaw: String?
 
-    // Stored as raw JSON rather than letting SwiftData decompose ORPrep into a
-    // "composite attribute": SwiftData reflects over ORPrep's Swift property names
-    // (e.g. `whyOperating`), but ORPrep's custom CodingKeys make Codable actually
-    // encode/decode snake_case keys (`why_operating`) to match the backend's JSON —
-    // that mismatch crashed SwiftData at runtime ("unknown property why_operating").
-    // Encoding it ourselves sidesteps that entirely.
-    private var prepData: Data = Data()
-
-    var prep: ORPrep {
-        get {
-            (try? JSONDecoder().decode(ORPrep.self, from: prepData)) ?? .empty
-        }
-        set {
-            prepData = (try? JSONEncoder().encode(newValue)) ?? Data()
-        }
+    enum CodingKeys: String, CodingKey {
+        case id, caseDescription, prep
+        case createdAtRaw = "createdAt"
+        case updatedAtRaw = "updatedAt"
+        case lastReviewedAtRaw = "lastReviewedAt"
     }
 
-    init(caseDescription: String, prep: ORPrep, createdAt: Date = Date(), lastReviewedAt: Date? = nil) {
-        self.id = UUID()
+    // Dates arrive as plain ISO8601 strings (see backend/cloud/scrubPrep/cases.js) rather
+    // than relying on however ParseCloudable's decoder would otherwise handle a native
+    // Date — parsed defensively here instead of trusting an untested decoding path.
+    private static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    var createdAt: Date { Self.isoFormatter.date(from: createdAtRaw) ?? Date() }
+    var updatedAt: Date { Self.isoFormatter.date(from: updatedAtRaw) ?? Date() }
+    var lastReviewedAt: Date? { lastReviewedAtRaw.flatMap(Self.isoFormatter.date) }
+
+    // The compiler-synthesized memberwise init would be `private` (it takes the least
+    // accessible level of any stored property, and the raw date strings are private) —
+    // this is the constructor other files (MockScrubPrepService, previews) actually use.
+    init(id: String, caseDescription: String, prep: ORPrep, createdAt: Date, updatedAt: Date, lastReviewedAt: Date?) {
+        self.id = id
         self.caseDescription = caseDescription
-        self.normalizedDescription = ScrubCase.normalize(caseDescription)
-        self.prepData = (try? JSONEncoder().encode(prep)) ?? Data()
-        self.createdAt = createdAt
-        self.lastReviewedAt = lastReviewedAt
+        self.prep = prep
+        self.createdAtRaw = Self.isoFormatter.string(from: createdAt)
+        self.updatedAtRaw = Self.isoFormatter.string(from: updatedAt)
+        self.lastReviewedAtRaw = lastReviewedAt.map(Self.isoFormatter.string)
     }
 
     static func normalize(_ text: String) -> String {

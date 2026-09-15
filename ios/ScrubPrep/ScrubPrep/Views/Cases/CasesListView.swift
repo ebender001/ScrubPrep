@@ -1,12 +1,8 @@
-import SwiftData
 import SwiftUI
 
 /// Full case history list (spec §11) — the Home screen only shows the 5 most recent.
 struct CasesListView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: [SortDescriptor(\ScrubCase.createdAt, order: .reverse)]) private var cases: [ScrubCase]
-
-    private var historyStore: CaseHistoryStore { CaseHistoryStore(modelContext: modelContext) }
+    @StateObject private var viewModel = CasesListViewModel()
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -17,7 +13,10 @@ struct CasesListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if cases.isEmpty {
+                if viewModel.isLoading && viewModel.cases.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.cases.isEmpty {
                     ContentUnavailableView(
                         "No cases yet",
                         systemImage: "clipboard",
@@ -25,7 +24,7 @@ struct CasesListView: View {
                     )
                 } else {
                     List {
-                        ForEach(cases) { scrubCase in
+                        ForEach(viewModel.cases) { scrubCase in
                             NavigationLink(value: scrubCase) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(scrubCase.prep.title)
@@ -41,27 +40,43 @@ struct CasesListView: View {
                             }
                         }
                         .onDelete { offsets in
-                            historyStore.delete(at: offsets, in: cases)
+                            viewModel.delete(at: offsets)
                         }
+                    }
+                    .refreshable {
+                        await viewModel.load()
                     }
                 }
             }
             .navigationTitle("Cases")
             .navigationDestination(for: ScrubCase.self) { scrubCase in
                 PrepView(caseDescription: scrubCase.caseDescription, prep: scrubCase.prep)
-                    .onAppear { historyStore.markReviewed(scrubCase) }
+                    .task { await viewModel.markReviewed(scrubCase) }
             }
             .toolbar {
-                if !cases.isEmpty {
+                if !viewModel.cases.isEmpty {
                     EditButton()
                 }
             }
+            .task {
+                await viewModel.load()
+            }
+            .alert("Couldn't load your cases", isPresented: errorBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
         }
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )
     }
 }
 
 #Preview {
-    let container = try! ModelContainer(for: ScrubCase.self, PimpMeSession.self, configurations: .init(isStoredInMemoryOnly: true))
     CasesListView()
-        .modelContainer(container)
 }

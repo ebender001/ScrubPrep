@@ -1,69 +1,44 @@
 import Foundation
-import SwiftData
 
-/// Thin helper around a SwiftData `ModelContext` for OR Prep case history writes.
-/// Reads happen directly via `@Query` in views; this centralizes the "never
-/// duplicate a case" and "mark reviewed" write logic (spec §11).
+/// Thin wrapper around `ScrubPrepServicing`'s Case-related Cloud Functions — the backend
+/// is the single source of truth for a user's saved Cases, not the device. Mirrors the
+/// shape this type had when it wrapped a SwiftData `ModelContext` (same method names),
+/// now async since every call is a network round-trip.
 @MainActor
 final class CaseHistoryStore {
-    private let modelContext: ModelContext
+    private let service: ScrubPrepServicing
 
-    init(modelContext: ModelContext) {
-        self.modelContext = modelContext
+    init(service: ScrubPrepServicing) {
+        self.service = service
     }
 
-    /// Looks up an already-prepared case by (normalized) description — the on-device,
-    /// cross-launch source of truth for "have we already generated this case?" (used by
-    /// HomeViewModel.prepareCase to skip a network/OpenAI hit entirely when found).
-    func find(caseDescription: String) -> ScrubCase? {
+    /// Every case saved for the signed-in user, most recently updated first.
+    func listAll() async throws -> [ScrubCase] {
+        try await service.listCases()
+    }
+
+    /// Looks up an already-prepared case by (normalized) description — used by
+    /// HomeViewModel.resolvePrep to skip a network/OpenAI hit entirely when this exact
+    /// case was already prepared.
+    func find(caseDescription: String) async throws -> ScrubCase? {
         let normalized = ScrubCase.normalize(caseDescription)
-        let descriptor = FetchDescriptor<ScrubCase>(
-            predicate: #Predicate { $0.normalizedDescription == normalized }
-        )
-        return try? modelContext.fetch(descriptor).first
+        let all = try await service.listCases()
+        return all.first { ScrubCase.normalize($0.caseDescription) == normalized }
     }
 
     /// Inserts a new case, or — if the same (normalized) case description was already
-    /// prepared — updates and re-dates that existing entry instead. Never duplicates
-    /// (e.g. regenerating "Lap Chole" always results in exactly one "Lap Chole" entry).
+    /// saved — updates and re-dates that existing entry instead (enforced server-side;
+    /// see backend/cloud/scrubPrep/cases.js). Never duplicates.
     @discardableResult
-    func addOrUpdate(caseDescription: String, prep: ORPrep) -> ScrubCase {
-        let normalized = ScrubCase.normalize(caseDescription)
-        let descriptor = FetchDescriptor<ScrubCase>(
-            predicate: #Predicate { $0.normalizedDescription == normalized }
-        )
-        if let existing = try? modelContext.fetch(descriptor).first {
-            existing.caseDescription = caseDescription
-            existing.prep = prep
-            existing.createdAt = Date()
-            existing.lastReviewedAt = nil
-            save()
-            return existing
-        }
-        let scrubCase = ScrubCase(caseDescription: caseDescription, prep: prep)
-        modelContext.insert(scrubCase)
-        save()
-        return scrubCase
+    func addOrUpdate(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+        try await service.saveCase(caseDescription: caseDescription, prep: prep)
     }
 
-    func markReviewed(_ scrubCase: ScrubCase) {
-        scrubCase.lastReviewedAt = Date()
-        save()
+    func markReviewed(_ scrubCase: ScrubCase) async throws {
+        try await service.markCaseReviewed(caseId: scrubCase.id)
     }
 
-    func delete(_ scrubCase: ScrubCase) {
-        modelContext.delete(scrubCase)
-        save()
-    }
-
-    func delete(at offsets: IndexSet, in cases: [ScrubCase]) {
-        for index in offsets {
-            modelContext.delete(cases[index])
-        }
-        save()
-    }
-
-    private func save() {
-        try? modelContext.save()
+    func delete(_ scrubCase: ScrubCase) async throws {
+        try await service.deleteCase(caseId: scrubCase.id)
     }
 }

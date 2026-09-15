@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// About screen (spec §1, §15) — informational only (creator bio, disclaimer). Account/
-/// subscription management will live elsewhere (e.g. a Home toolbar icon) once a paywall
-/// is introduced, rather than here.
+/// About screen (spec §1, §15) — informational, plus account sign-out. Subscription
+/// management will live elsewhere (e.g. a Home toolbar icon) once a paywall is
+/// introduced, rather than here.
 struct AboutView: View {
+    @EnvironmentObject private var authViewModel: AuthViewModel
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -15,6 +17,21 @@ struct AboutView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Account")
+                            .font(.headline)
+                        Text(accountDescription)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Button("Sign Out", role: .destructive) {
+                            Task { await authViewModel.logOut() }
+                        }
+                        .font(.subheadline.weight(.medium))
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Medical Disclaimer")
@@ -57,8 +74,16 @@ struct AboutView: View {
             .navigationTitle("About")
         }
     }
+
+    private var accountDescription: String {
+        if let email = authViewModel.currentUser?.email, !email.isEmpty {
+            return "Signed in as \(email)."
+        }
+        return "Signed in with Apple."
+    }
 }
 
 #Preview {
     AboutView()
+        .environmentObject(AuthViewModel())
 }

@@ -19,6 +19,10 @@ final class HomeViewModel: ObservableObject {
     @Published var rapidFirePrep: ORPrep?
     @Published var navigateToRapidFire = false
 
+    // Backend-authoritative — not cached locally. Loaded via loadCases(), called from
+    // HomeView's .task and refreshed after anything that mutates a case.
+    @Published private(set) var recentCases: [ScrubCase] = []
+
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
     // chips until the user picks one from the specialty row (spec: specialty selection is
     // the first step, not a default). Kept as full CaseType values (not just names) so the
@@ -57,9 +61,10 @@ final class HomeViewModel: ObservableObject {
     // is MainActor-isolated, and default-argument expressions evaluate in a nonisolated
     // context under this project's concurrency settings. Resolving it in the body instead
     // (same-actor call, since HomeViewModel is @MainActor) avoids that warning.
-    init(service: ScrubPrepServicing? = nil, historyStore: CaseHistoryStore) {
-        self.service = service ?? ScrubPrepServiceFactory.make()
-        self.historyStore = historyStore
+    init(service: ScrubPrepServicing? = nil) {
+        let resolvedService = service ?? ScrubPrepServiceFactory.make()
+        self.service = resolvedService
+        self.historyStore = CaseHistoryStore(service: resolvedService)
 
         let cachedSpecialties = SpecialtyCache.load()
         self.specialties = cachedSpecialties
@@ -69,6 +74,42 @@ final class HomeViewModel: ObservableObject {
 
         loadCaseTypes()
         refreshSpecialties()
+    }
+
+    /// Fetches the signed-in user's saved cases from the backend. Failure is silent —
+    /// same "never let a decorative fetch block or error out the primary flow" reasoning
+    /// as loadCaseTypes/refreshSpecialties; Recent Cases just stays empty/stale.
+    func loadCases() async {
+        if let cases = try? await historyStore.listAll() {
+            recentCases = cases
+        }
+    }
+
+    /// Tapping "Review" on a Recent Cases row.
+    func reviewRecentCase(_ scrubCase: ScrubCase) async {
+        try? await historyStore.markReviewed(scrubCase)
+        generatedPrep = scrubCase.prep
+        caseDescription = scrubCase.caseDescription
+        navigateToPrep = true
+        await loadCases()
+    }
+
+    /// Tapping "Pimp Me" on a Recent Cases row.
+    func startPimpMeFromRecentCase(_ scrubCase: ScrubCase) async {
+        try? await historyStore.markReviewed(scrubCase)
+        caseDescription = scrubCase.caseDescription
+        pimpMePrep = scrubCase.prep
+        navigateToPimpMe = true
+        await loadCases()
+    }
+
+    /// Tapping "Rapid Fire" on a Recent Cases row.
+    func startRapidFireFromRecentCase(_ scrubCase: ScrubCase) async {
+        try? await historyStore.markReviewed(scrubCase)
+        caseDescription = scrubCase.caseDescription
+        rapidFirePrep = scrubCase.prep
+        navigateToRapidFire = true
+        await loadCases()
     }
 
     /// Fetches the full case type catalog used to filter quick-picks once a specialty is
@@ -169,16 +210,6 @@ final class HomeViewModel: ObservableObject {
         guard !trimmed.isEmpty else { return }
 
         errorMessage = nil
-
-        // Already prepared this case on this device? Reuse it — no network/OpenAI hit.
-        // Source of truth is SwiftData (persists across launches), not an in-memory
-        // cache, so this works even the first time a case is re-entered after relaunch.
-        if let existing = historyStore.find(caseDescription: trimmed) {
-            historyStore.markReviewed(existing)
-            onReady(existing.prep)
-            return
-        }
-
         isGenerating = true
 
         let requestID = UUID()
@@ -186,9 +217,20 @@ final class HomeViewModel: ObservableObject {
 
         generationTask = Task {
             do {
+                // Already prepared this case? Reuse it — no network/OpenAI hit. Source of
+                // truth is the backend (not a local cache), so this is itself a network
+                // call, just a much cheaper one than actually generating a prep.
+                if let existing = try await historyStore.find(caseDescription: trimmed) {
+                    guard !Task.isCancelled, requestID == currentRequestID else { return }
+                    try? await historyStore.markReviewed(existing)
+                    isGenerating = false
+                    onReady(existing.prep)
+                    return
+                }
+
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
-                historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
+                try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
                 isGenerating = false
                 onReady(prep)
             } catch {

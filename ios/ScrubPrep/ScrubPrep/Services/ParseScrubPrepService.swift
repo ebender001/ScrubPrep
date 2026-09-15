@@ -50,6 +50,65 @@ private struct ListSpecialtiesRequest: ParseCloudable {
     var functionJobName = "listSpecialties"
 }
 
+private struct CaseCatalog: Codable {
+    let cases: [ScrubCase]
+}
+
+private struct SaveCaseResult: Codable {
+    let `case`: ScrubCase
+}
+
+private struct SuccessResult: Codable {
+    let success: Bool
+}
+
+private struct PimpMeSessionCatalog: Codable {
+    let sessions: [PimpMeSession]
+}
+
+private struct SavePimpMeSessionResult: Codable {
+    let session: PimpMeSession
+}
+
+private struct ListCasesRequest: ParseCloudable {
+    typealias ReturnType = CaseCatalog
+    var functionJobName = "listCases"
+}
+
+private struct SaveCaseRequest: ParseCloudable {
+    typealias ReturnType = SaveCaseResult
+    var functionJobName = "saveCase"
+    let caseDescription: String
+    let prep: ORPrep
+}
+
+private struct MarkCaseReviewedRequest: ParseCloudable {
+    typealias ReturnType = SuccessResult
+    var functionJobName = "markCaseReviewed"
+    let caseId: String
+}
+
+private struct DeleteCaseRequest: ParseCloudable {
+    typealias ReturnType = SuccessResult
+    var functionJobName = "deleteCase"
+    let caseId: String
+}
+
+private struct ListPimpMeSessionsRequest: ParseCloudable {
+    typealias ReturnType = PimpMeSessionCatalog
+    var functionJobName = "listPimpMeSessions"
+    let caseDescription: String
+}
+
+private struct SavePimpMeSessionRequest: ParseCloudable {
+    typealias ReturnType = SavePimpMeSessionResult
+    var functionJobName = "savePimpMeSession"
+    let caseDescription: String
+    let difficulty: PimpDifficulty
+    let transcript: [PimpTurn]
+    let summary: PimpSummary
+}
+
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
 /// All OpenAI calls happen server-side — this type never sees an OpenAI key (spec §4).
 struct ParseScrubPrepService: ScrubPrepServicing {
@@ -79,6 +138,44 @@ struct ParseScrubPrepService: ScrubPrepServicing {
 
     func listSpecialties() async throws -> [Specialty] {
         try await run { try await ListSpecialtiesRequest().runFunction().specialties }
+    }
+
+    func listCases() async throws -> [ScrubCase] {
+        try await run { try await ListCasesRequest().runFunction().cases }
+    }
+
+    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+        try await run {
+            try await SaveCaseRequest(caseDescription: caseDescription, prep: prep).runFunction().case
+        }
+    }
+
+    func markCaseReviewed(caseId: String) async throws {
+        try await run { try await MarkCaseReviewedRequest(caseId: caseId).runFunction() }
+    }
+
+    func deleteCase(caseId: String) async throws {
+        try await run { try await DeleteCaseRequest(caseId: caseId).runFunction() }
+    }
+
+    func listPimpMeSessions(caseDescription: String) async throws -> [PimpMeSession] {
+        try await run { try await ListPimpMeSessionsRequest(caseDescription: caseDescription).runFunction().sessions }
+    }
+
+    func savePimpMeSession(
+        caseDescription: String,
+        difficulty: PimpDifficulty,
+        transcript: [PimpTurn],
+        summary: PimpSummary
+    ) async throws -> PimpMeSession {
+        try await run {
+            try await SavePimpMeSessionRequest(
+                caseDescription: caseDescription,
+                difficulty: difficulty,
+                transcript: transcript,
+                summary: summary
+            ).runFunction().session
+        }
     }
 
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:

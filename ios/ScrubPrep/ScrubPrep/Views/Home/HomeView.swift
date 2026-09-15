@@ -1,21 +1,7 @@
-import SwiftData
 import SwiftUI
 
 struct HomeView: View {
-    // Passed in explicitly (rather than resolved from @Environment) so the *same*
-    // instance can be used to construct HomeViewModel in init() — @Environment isn't
-    // resolved yet at init time.
-    private let historyStore: CaseHistoryStore
-    @StateObject private var viewModel: HomeViewModel
-
-    // Reads go through @Query directly (SwiftData's idiomatic pattern) rather than
-    // through historyStore, which only handles writes.
-    @Query(sort: [SortDescriptor(\ScrubCase.createdAt, order: .reverse)]) private var allCases: [ScrubCase]
-
-    init(historyStore: CaseHistoryStore) {
-        self.historyStore = historyStore
-        _viewModel = StateObject(wrappedValue: HomeViewModel(historyStore: historyStore))
-    }
+    @StateObject private var viewModel = HomeViewModel()
 
     var body: some View {
         NavigationStack {
@@ -86,7 +72,7 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
 
-                    if !allCases.isEmpty {
+                    if !viewModel.recentCases.isEmpty {
                         recentCases
                     }
                 }
@@ -94,6 +80,9 @@ struct HomeView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.selectedSpecialty)
             }
             .navigationTitle("Scrub Prep")
+            .task {
+                await viewModel.loadCases()
+            }
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
                 case .firstDay:
@@ -149,26 +138,17 @@ struct HomeView: View {
             Text("Recent Cases")
                 .font(.title3.weight(.semibold))
 
-            ForEach(allCases.prefix(5)) { scrubCase in
+            ForEach(viewModel.recentCases.prefix(5)) { scrubCase in
                 RecentCaseRow(
                     scrubCase: scrubCase,
                     onReview: {
-                        historyStore.markReviewed(scrubCase)
-                        viewModel.generatedPrep = scrubCase.prep
-                        viewModel.caseDescription = scrubCase.caseDescription
-                        viewModel.navigateToPrep = true
+                        Task { await viewModel.reviewRecentCase(scrubCase) }
                     },
                     onPimpMe: {
-                        historyStore.markReviewed(scrubCase)
-                        viewModel.caseDescription = scrubCase.caseDescription
-                        viewModel.pimpMePrep = scrubCase.prep
-                        viewModel.navigateToPimpMe = true
+                        Task { await viewModel.startPimpMeFromRecentCase(scrubCase) }
                     },
                     onRapidFire: {
-                        historyStore.markReviewed(scrubCase)
-                        viewModel.caseDescription = scrubCase.caseDescription
-                        viewModel.rapidFirePrep = scrubCase.prep
-                        viewModel.navigateToRapidFire = true
+                        Task { await viewModel.startRapidFireFromRecentCase(scrubCase) }
                     }
                 )
             }
@@ -181,7 +161,5 @@ enum HomeRoute: Hashable {
 }
 
 #Preview {
-    let container = try! ModelContainer(for: ScrubCase.self, PimpMeSession.self, configurations: .init(isStoredInMemoryOnly: true))
-    HomeView(historyStore: CaseHistoryStore(modelContext: container.mainContext))
-        .modelContainer(container)
+    HomeView()
 }

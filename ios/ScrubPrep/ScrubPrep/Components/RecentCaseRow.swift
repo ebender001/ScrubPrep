@@ -40,6 +40,18 @@ struct RecentCaseRow: View {
 }
 
 #Preview {
-    RecentCaseRow(scrubCase: ScrubCase(caseDescription: "Lap chole", prep: .mockLapChole), onReview: {}, onPimpMe: {}, onRapidFire: {})
-        .padding()
+    RecentCaseRow(
+        scrubCase: ScrubCase(
+            id: "preview",
+            caseDescription: "Lap chole",
+            prep: .mockLapChole,
+            createdAt: Date(),
+            updatedAt: Date(),
+            lastReviewedAt: nil
+        ),
+        onReview: {},
+        onPimpMe: {},
+        onRapidFire: {}
+    )
+    .padding()
 }

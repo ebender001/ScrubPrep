@@ -1,4 +1,3 @@
-import SwiftData
 import SwiftUI
 
 /// The interactive Pimp Me experience: pick a difficulty, then answer one question at a
@@ -8,7 +7,6 @@ import SwiftUI
 struct PimpMeView: View {
     @StateObject private var viewModel: PimpMeViewModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
     @FocusState private var isAnswerFocused: Bool
 
     init(caseDescription: String, prep: ORPrep) {
@@ -19,9 +17,6 @@ struct PimpMeView: View {
         content
             .navigationTitle("Pimp Me")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                viewModel.attachSessionStore(PimpMeSessionStore(modelContext: modelContext))
-            }
             .alert("Couldn't continue", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -33,7 +28,11 @@ struct PimpMeView: View {
     private var content: some View {
         switch viewModel.phase {
         case .pickingDifficulty:
-            difficultyPicker
+            if viewModel.isLoadingCompletedDifficulties {
+                LoadingView(title: "Loading your progress\u{2026}", messages: [])
+            } else {
+                difficultyPicker
+            }
         case .starting:
             LoadingView(
                 title: "Starting your session\u{2026}",
