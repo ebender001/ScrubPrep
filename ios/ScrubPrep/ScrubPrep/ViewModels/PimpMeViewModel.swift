@@ -50,6 +50,11 @@ final class PimpMeViewModel: ObservableObject {
     @Published private(set) var lastTurn: PimpTurn?
     /// Every completed turn this session, oldest first.
     @Published private(set) var history: [PimpTurn] = []
+    /// Set once the final question's feedback comes back, while that feedback is still
+    /// being shown — the session only actually completes (and gets saved) once the
+    /// student taps through past it. Lets the last question's feedback card display
+    /// like every other, instead of jumping straight to the summary.
+    @Published private(set) var pendingSummary: PimpSummary?
     /// Difficulties already completed for this case, across all sessions ever taken —
     /// drives the "locked, tap to review" state on the difficulty picker.
     @Published private(set) var completedDifficulties: Set<PimpDifficulty> = []
@@ -148,14 +153,10 @@ final class PimpMeViewModel: ObservableObject {
                 history.append(turn)
 
                 if result.done, let summary = result.summary {
-                    phase = .completed(summary)
-                    sessionStore?.save(
-                        caseDescription: caseDescription,
-                        difficulty: difficulty,
-                        transcript: history,
-                        summary: summary
-                    )
-                    completedDifficulties.insert(difficulty)
+                    // Show this last turn's feedback first, same as any other question —
+                    // completion (and the save below) happens on continueToNextQuestion().
+                    pendingSummary = summary
+                    phase = .reviewingFeedback
                 } else {
                     currentQuestion = result.nextQuestion
                     phase = .reviewingFeedback
@@ -167,9 +168,28 @@ final class PimpMeViewModel: ObservableObject {
         }
     }
 
-    /// Advances from the feedback shown after an answer to the next question.
+    /// True while showing the final question's feedback, before the student has tapped
+    /// through to the summary — drives the "See Summary" vs "Next Question" button label.
+    var isFinalFeedback: Bool {
+        pendingSummary != nil
+    }
+
+    /// Advances from the feedback shown after an answer to the next question, or — if
+    /// this was the final question — completes and saves the session.
     func continueToNextQuestion() {
-        phase = .answering
+        if let summary = pendingSummary {
+            phase = .completed(summary)
+            sessionStore?.save(
+                caseDescription: caseDescription,
+                difficulty: difficulty,
+                transcript: history,
+                summary: summary
+            )
+            completedDifficulties.insert(difficulty)
+            pendingSummary = nil
+        } else {
+            phase = .answering
+        }
     }
 
     private func friendlyMessage(for error: Error) -> String {

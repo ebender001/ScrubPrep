@@ -152,10 +152,12 @@ struct PimpMeView: View {
                 if viewModel.phase == .reviewingFeedback, let turn = viewModel.lastTurn {
                     feedbackCard(for: turn)
                     Button {
-                        isAnswerFocused = true
+                        if !viewModel.isFinalFeedback {
+                            isAnswerFocused = true
+                        }
                         viewModel.continueToNextQuestion()
                     } label: {
-                        Text("Next Question")
+                        Text(viewModel.isFinalFeedback ? "See Summary" : "Next Question")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
@@ -209,6 +211,7 @@ struct PimpMeView: View {
                     .focused($isAnswerFocused)
                     .scrollContentBackground(.hidden)
                     .disabled(viewModel.isSubmitting)
+                    .autocorrectionDisabled()
             }
             .padding(8)
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
