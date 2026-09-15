@@ -13,14 +13,16 @@ function normalizeDescription(text) {
   return (text || "").trim().toLowerCase();
 }
 
+// Dates are sent as explicit ISO8601 strings — see cases.js's serializeCase for why.
 function serializeSession(obj) {
+  const completedAt = obj.get("completedAt") || obj.updatedAt;
   return {
     id: obj.id,
     caseDescription: obj.get("caseDescription"),
     difficulty: obj.get("difficulty"),
     transcript: obj.get("transcript") || [],
     summary: obj.get("summary") || null,
-    completedAt: obj.get("completedAt") || obj.updatedAt,
+    completedAt: completedAt.toISOString(),
   };
 }
 

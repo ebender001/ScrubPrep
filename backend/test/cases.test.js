@@ -65,8 +65,8 @@ test("listCasesForOwner maps Parse objects to plain case objects", async () => {
       id: obj.id,
       caseDescription: "CABG",
       prep: { title: "CABG" },
-      createdAt: obj.createdAt,
-      updatedAt: obj.updatedAt,
+      createdAt: obj.createdAt.toISOString(),
+      updatedAt: obj.updatedAt.toISOString(),
       lastReviewedAt: null,
     },
   ]);
@@ -86,7 +86,8 @@ test("markCaseReviewed sets lastReviewedAt on the owned case", async () => {
     { caseId: obj.id, owner: fakeOwner("user1") },
     { fetchOwnedCaseById: async () => obj }
   );
-  assert.ok(result.lastReviewedAt instanceof Date);
+  assert.equal(typeof result.lastReviewedAt, "string");
+  assert.ok(!Number.isNaN(Date.parse(result.lastReviewedAt)));
 });
 
 test("deleteCase returns false when the case isn't found/owned, without cascading", async () => {

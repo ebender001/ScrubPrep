@@ -84,7 +84,7 @@ test("listSessionsForCase maps Parse objects to plain session objects", async ()
       difficulty: "tough",
       transcript: [],
       summary: { strong: [], review: [], twoMinuteReview: [] },
-      completedAt: obj.get("completedAt"),
+      completedAt: obj.get("completedAt").toISOString(),
     },
   ]);
 });

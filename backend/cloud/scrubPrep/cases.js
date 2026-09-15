@@ -13,14 +13,19 @@ function normalizeDescription(text) {
   return (text || "").trim().toLowerCase();
 }
 
+// Dates are sent as explicit ISO8601 strings rather than raw Date objects — the client
+// decodes them defensively itself rather than relying on however the Cloud Function
+// response pipeline would otherwise serialize a native Date (untested territory: no
+// other Cloud Function response in this app has ever included a Date field before).
 function serializeCase(obj) {
+  const lastReviewedAt = obj.get("lastReviewedAt");
   return {
     id: obj.id,
     caseDescription: obj.get("caseDescription"),
     prep: obj.get("prep") || null,
-    createdAt: obj.createdAt,
-    updatedAt: obj.updatedAt,
-    lastReviewedAt: obj.get("lastReviewedAt") || null,
+    createdAt: obj.createdAt.toISOString(),
+    updatedAt: obj.updatedAt.toISOString(),
+    lastReviewedAt: lastReviewedAt ? lastReviewedAt.toISOString() : null,
   };
 }
 
