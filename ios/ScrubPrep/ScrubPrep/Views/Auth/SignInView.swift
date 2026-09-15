@@ -16,6 +16,7 @@ struct SignInView: View {
     @State private var mode: Mode = .logIn
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var infoMessage: String?
 
     var body: some View {
@@ -59,6 +60,19 @@ struct SignInView: View {
                         .padding()
                         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
+                    if mode == .signUp {
+                        SecureField("Confirm Password", text: $confirmPassword)
+                            .textContentType(.newPassword)
+                            .padding()
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                        if !confirmPassword.isEmpty && confirmPassword != password {
+                            Text("Passwords don't match.")
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+                    }
+
                     Button {
                         Task { await submit() }
                     } label: {
@@ -86,6 +100,7 @@ struct SignInView: View {
                         Button(mode == .signUp ? "Already have an account? Sign in" : "New here? Create an account") {
                             mode = mode == .signUp ? .logIn : .signUp
                             infoMessage = nil
+                            confirmPassword = ""
                         }
                         .font(.footnote)
 
@@ -111,7 +126,9 @@ struct SignInView: View {
     }
 
     private var isFormValid: Bool {
-        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !password.isEmpty
+        guard !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !password.isEmpty else { return false }
+        guard mode == .signUp else { return true }
+        return password == confirmPassword
     }
 
     private var errorBinding: Binding<Bool> {
