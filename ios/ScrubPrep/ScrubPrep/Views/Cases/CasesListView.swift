@@ -61,7 +61,7 @@ struct CasesListView: View {
 }
 
 #Preview {
-    let container = try! ModelContainer(for: ScrubCase.self, configurations: .init(isStoredInMemoryOnly: true))
+    let container = try! ModelContainer(for: ScrubCase.self, PimpMeSession.self, configurations: .init(isStoredInMemoryOnly: true))
     CasesListView()
         .modelContainer(container)
 }

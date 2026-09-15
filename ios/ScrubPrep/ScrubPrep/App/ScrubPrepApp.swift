@@ -37,6 +37,6 @@ struct ScrubPrepApp: App {
         WindowGroup {
             RootTabView()
         }
-        .modelContainer(for: ScrubCase.self)
+        .modelContainer(for: [ScrubCase.self, PimpMeSession.self])
     }
 }

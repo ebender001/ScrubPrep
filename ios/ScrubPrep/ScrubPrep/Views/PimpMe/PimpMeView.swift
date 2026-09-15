@@ -1,10 +1,14 @@
+import SwiftData
 import SwiftUI
 
 /// The interactive Pimp Me experience: pick a difficulty, then answer one question at a
-/// time with feedback after each, ending in a readiness summary (spec §7-8).
+/// time with feedback after each, ending in a readiness summary (spec §7-8). Each
+/// difficulty can only be completed once per case — completed ones are locked and shown
+/// with a checkmark; tapping one reviews its saved transcript instead of restarting.
 struct PimpMeView: View {
     @StateObject private var viewModel: PimpMeViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @FocusState private var isAnswerFocused: Bool
 
     init(caseDescription: String, prep: ORPrep) {
@@ -15,6 +19,9 @@ struct PimpMeView: View {
         content
             .navigationTitle("Pimp Me")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                viewModel.attachSessionStore(PimpMeSessionStore(modelContext: modelContext))
+            }
             .alert("Couldn't continue", isPresented: errorBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -36,6 +43,8 @@ struct PimpMeView: View {
             sessionView
         case .completed(let summary):
             summaryView(summary)
+        case .reviewingTranscript(let level, let transcript, let summary):
+            transcriptView(difficulty: level, transcript: transcript, summary: summary)
         }
     }
 
@@ -47,6 +56,10 @@ struct PimpMeView: View {
     }
 
     // MARK: - Difficulty picker
+
+    private var allDifficultiesCompleted: Bool {
+        viewModel.completedDifficulties.count == PimpDifficulty.allCases.count
+    }
 
     private var difficultyPicker: some View {
         ScrollView {
@@ -63,46 +76,68 @@ struct PimpMeView: View {
                     }
                 }
 
-                Button {
-                    viewModel.start()
-                } label: {
-                    Text("Start")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                if allDifficultiesCompleted {
+                    Text("You've completed every difficulty for this case. Tap any level above to review it.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button {
+                        viewModel.start()
+                    } label: {
+                        Text("Start")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
             }
             .padding()
         }
     }
 
     private func difficultyRow(_ level: PimpDifficulty) -> some View {
-        let isSelected = viewModel.difficulty == level
+        let isCompleted = viewModel.completedDifficulties.contains(level)
+        let isSelected = !isCompleted && viewModel.difficulty == level
         return Button {
-            viewModel.difficulty = level
+            viewModel.selectDifficulty(level)
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(level.displayName)
                         .font(.subheadline.weight(.semibold))
-                    Text(level.subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if isCompleted {
+                        Text("Completed — tap to review")
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    } else {
+                        Text(level.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
-                if isSelected {
+                if isCompleted {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                } else if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(Color.accentColor)
                 }
             }
             .padding()
             .background(
-                isSelected ? Color.accentColor.opacity(0.12) : Color(.secondarySystemBackground),
+                rowBackground(isCompleted: isCompleted, isSelected: isSelected),
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
         }
         .buttonStyle(.plain)
+    }
+
+    private func rowBackground(isCompleted: Bool, isSelected: Bool) -> Color {
+        if isCompleted { return Color.green.opacity(0.12) }
+        if isSelected { return Color.accentColor.opacity(0.12) }
+        return Color(.secondarySystemBackground)
     }
 
     // MARK: - Session (question + feedback)
@@ -250,10 +285,68 @@ struct PimpMeView: View {
                 SectionCard(title: "Review before you scrub", systemImage: "book.closed.fill", items: summary.review)
                 SectionCard(title: "Two-minute review", systemImage: "clock.fill", items: summary.twoMinuteReview)
 
+                if allDifficultiesCompleted {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button {
+                        viewModel.backToDifficultyPicker()
+                    } label: {
+                        Text("Choose Another Difficulty")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Done")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .padding()
+        }
+    }
+
+    // MARK: - Transcript review (a previously-completed difficulty)
+
+    private func transcriptView(difficulty: PimpDifficulty, transcript: [PimpTurn], summary: PimpSummary) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("\(difficulty.displayName) — Completed", systemImage: "checkmark.seal.fill")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.green)
+                    Text(viewModel.prep.title)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(transcript) { turn in
+                    feedbackCard(for: turn)
+                }
+
+                SectionCard(title: "You're strong on", systemImage: "checkmark.seal.fill", items: summary.strong)
+                SectionCard(title: "Review before you scrub", systemImage: "book.closed.fill", items: summary.review)
+                SectionCard(title: "Two-minute review", systemImage: "clock.fill", items: summary.twoMinuteReview)
+
                 Button {
-                    dismiss()
+                    viewModel.backToDifficultyPicker()
                 } label: {
-                    Text("Done")
+                    Text("Back to Difficulties")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)

@@ -66,11 +66,21 @@ struct PimpAnswerResult: Codable {
 }
 
 /// One completed turn in a Pimp Me session, kept client-side for display/history.
-struct PimpTurn: Identifiable, Hashable {
-    let id = UUID()
+/// Codable so a completed session's transcript can be persisted (see PimpMeSession).
+struct PimpTurn: Identifiable, Hashable, Codable {
+    let id: UUID
     let question: String
     let answer: String
     let assessment: PimpAssessment
     let feedback: String
     let teachingPoint: String
+
+    init(id: UUID = UUID(), question: String, answer: String, assessment: PimpAssessment, feedback: String, teachingPoint: String) {
+        self.id = id
+        self.question = question
+        self.answer = answer
+        self.assessment = assessment
+        self.feedback = feedback
+        self.teachingPoint = teachingPoint
+    }
 }

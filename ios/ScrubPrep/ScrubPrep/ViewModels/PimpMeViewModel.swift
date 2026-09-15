@@ -2,7 +2,9 @@ import Combine
 import Foundation
 
 /// Drives an interactive Pimp Me session: difficulty selection, then one question at a
-/// time, feedback after each answer, and a final readiness summary.
+/// time, feedback after each answer, and a final readiness summary. Each difficulty can
+/// only be completed once per case — once done it's locked from restarting and instead
+/// shows its saved transcript (see PimpMeSessionStore).
 @MainActor
 final class PimpMeViewModel: ObservableObject {
     enum Phase: Equatable {
@@ -13,6 +15,8 @@ final class PimpMeViewModel: ObservableObject {
         /// Showing feedback for the answer just submitted, before advancing.
         case reviewingFeedback
         case completed(PimpSummary)
+        /// Reviewing a previously-completed difficulty's saved transcript (read-only).
+        case reviewingTranscript(difficulty: PimpDifficulty, transcript: [PimpTurn], summary: PimpSummary)
 
         static func == (lhs: Phase, rhs: Phase) -> Bool {
             switch (lhs, rhs) {
@@ -23,6 +27,8 @@ final class PimpMeViewModel: ObservableObject {
                 return true
             case let (.completed(a), .completed(b)):
                 return a == b
+            case let (.reviewingTranscript(d1, _, s1), .reviewingTranscript(d2, _, s2)):
+                return d1 == d2 && s1 == s2
             default:
                 return false
             }
@@ -44,8 +50,12 @@ final class PimpMeViewModel: ObservableObject {
     @Published private(set) var lastTurn: PimpTurn?
     /// Every completed turn this session, oldest first.
     @Published private(set) var history: [PimpTurn] = []
+    /// Difficulties already completed for this case, across all sessions ever taken —
+    /// drives the "locked, tap to review" state on the difficulty picker.
+    @Published private(set) var completedDifficulties: Set<PimpDifficulty> = []
 
     private let service: ScrubPrepServicing
+    private var sessionStore: PimpMeSessionStore?
     private var sessionId: String?
 
     init(caseDescription: String, prep: ORPrep, service: ScrubPrepServicing? = nil) {
@@ -54,9 +64,48 @@ final class PimpMeViewModel: ObservableObject {
         self.service = service ?? ScrubPrepServiceFactory.make()
     }
 
+    /// Wires up SwiftData persistence. Called once the view's `modelContext` is available
+    /// (not yet resolved at `init` time — see HomeViewModel's analogous historyStore note).
+    func attachSessionStore(_ store: PimpMeSessionStore) {
+        guard sessionStore == nil else { return }
+        sessionStore = store
+        completedDifficulties = store.completedDifficulties(forCaseDescription: caseDescription)
+
+        // Default selection should land on something startable, not a level already done.
+        if completedDifficulties.contains(difficulty) {
+            if let firstRemaining = PimpDifficulty.allCases.first(where: { !completedDifficulties.contains($0) }) {
+                difficulty = firstRemaining
+            }
+        }
+    }
+
+    /// Tapping a difficulty row: if it's already completed, show its saved transcript;
+    /// otherwise just select it as the level to start.
+    func selectDifficulty(_ level: PimpDifficulty) {
+        if completedDifficulties.contains(level) {
+            showTranscript(for: level)
+        } else {
+            difficulty = level
+        }
+    }
+
+    private func showTranscript(for level: PimpDifficulty) {
+        guard let session = sessionStore?.find(caseDescription: caseDescription, difficulty: level) else { return }
+        phase = .reviewingTranscript(difficulty: level, transcript: session.transcript, summary: session.summary)
+    }
+
+    /// Returns from a transcript review or a just-finished summary to the difficulty
+    /// picker, so the student can progress to a harder or easier level.
+    func backToDifficultyPicker() {
+        phase = .pickingDifficulty
+    }
+
     func start() {
+        guard !completedDifficulties.contains(difficulty) else { return }
         phase = .starting
         errorMessage = nil
+        history = []
+        lastTurn = nil
         Task {
             do {
                 let result = try await service.startPimpSession(
@@ -100,6 +149,13 @@ final class PimpMeViewModel: ObservableObject {
 
                 if result.done, let summary = result.summary {
                     phase = .completed(summary)
+                    sessionStore?.save(
+                        caseDescription: caseDescription,
+                        difficulty: difficulty,
+                        transcript: history,
+                        summary: summary
+                    )
+                    completedDifficulties.insert(difficulty)
                 } else {
                     currentQuestion = result.nextQuestion
                     phase = .reviewingFeedback
