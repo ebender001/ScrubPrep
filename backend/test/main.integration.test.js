@@ -133,6 +133,9 @@ global.Parse = {
     define: (name, handler) => {
       registry[name] = handler;
     },
+    job: (name, handler) => {
+      registry[name] = handler;
+    },
   },
 };
 

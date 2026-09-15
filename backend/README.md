@@ -18,6 +18,7 @@ cloud/
     specialties.js              listSpecialties() — reads the Specialty catalog Parse class
     cases.js                    a signed-in user's saved Cases (ScrubCase Parse class)
     pimpMeSessions.js            a signed-in user's completed Pimp Me sessions (PimpMeSession Parse class)
+    cleanup.js                  cleanupOldPimpSessions job — deletes stale ephemeral PimpSession rows
 test/                          node:test unit tests (mock the AI client, no network/Parse needed)
 scripts/
   lib/parseRest.js               shared Parse REST API helper (used by the scripts below)
@@ -54,6 +55,8 @@ scripts/
 The `or_prep` JSON schema (`cloud/scrubPrep/schemas.js`) requires a `recognized` boolean. The model sets it `false` (and fills every other field with honest placeholder content instead of inventing a fake operation) when the case description isn't a real, identifiable procedure — gibberish, unrelated text, etc. `cloud/scrubPrep/prep.js` turns that into an `UnrecognizedCaseError` (thrown immediately, no retry — retrying gibberish with the same prompt won't make it real), which `generateScrubPrep` in `cloud/main.js` converts into a `Parse.Error` with a custom code (`4001`) and a randomly-picked witty message (see `UNRECOGNIZED_CASE_MESSAGES`). The iOS client checks for this specific code to show the message as-is instead of a generic failure message, and — since no prep is returned — never saves it to case history.
 
 Pimp Me session state is stored server-side in a `PimpSession` Parse class (`caseDescription`, `prep`, `difficulty`, `history`, `pendingQuestion`, `status`) so the client only ever needs to hold a `sessionId`. This is an **ephemeral** scratchpad for a single in-progress round — don't confuse it with `PimpMeSession` below, the persisted record of a *completed* session.
+
+A `cleanupOldPimpSessions` Cloud Job (`cloud/scrubPrep/cleanup.js`) deletes any `PimpSession` row not updated in the last day (configurable via an optional `maxAgeDays` param) — a session is meant to finish in minutes, so anything older is abandoned, and nothing ever reads a `PimpSession` row again once it's stale. This only runs when triggered — **after deploying, schedule it once in the Back4App dashboard** (Server Settings → Job Scheduler → pick `cleanupOldPimpSessions`, e.g. daily) or trigger it manually from there; there's no way to schedule it from this repo.
 
 ### User accounts, Cases, and Pimp Me sessions
 

@@ -9,6 +9,7 @@ const caseTypes = require("./scrubPrep/caseTypes");
 const specialties = require("./scrubPrep/specialties");
 const cases = require("./scrubPrep/cases");
 const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
+const cleanup = require("./scrubPrep/cleanup");
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
@@ -392,3 +393,10 @@ Parse.Cloud.define(
     return { session };
   })
 );
+
+// Scheduled from the Back4App dashboard (Server Settings -> Job Scheduler after
+// deploying) — not triggered by the client. Optional `maxAgeDays` param, defaults to 1.
+Parse.Cloud.job("cleanupOldPimpSessions", async (request) => {
+  const deletedCount = await cleanup.cleanupOldPimpSessions({ maxAgeDays: request.params.maxAgeDays });
+  request.message(`Deleted ${deletedCount} PimpSession row(s).`);
+});
