@@ -5,6 +5,7 @@ struct RecentCaseRow: View {
     let scrubCase: ScrubCase
     let onReview: () -> Void
     let onPimpMe: () -> Void
+    let onRapidFire: () -> Void
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -27,6 +28,9 @@ struct RecentCaseRow: View {
                 Button("Pimp Me", action: onPimpMe)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
+                Button("Rapid Fire", action: onRapidFire)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 Spacer()
             }
         }
@@ -36,6 +40,6 @@ struct RecentCaseRow: View {
 }
 
 #Preview {
-    RecentCaseRow(scrubCase: ScrubCase(caseDescription: "Lap chole", prep: .mockLapChole), onReview: {}, onPimpMe: {})
+    RecentCaseRow(scrubCase: ScrubCase(caseDescription: "Lap chole", prep: .mockLapChole), onReview: {}, onPimpMe: {}, onRapidFire: {})
         .padding()
 }

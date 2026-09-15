@@ -15,6 +15,9 @@ final class HomeViewModel: ObservableObject {
     // this flag drives navigation straight into the interactive session instead of PrepView.
     @Published var pimpMePrep: ORPrep?
     @Published var navigateToPimpMe = false
+    // Same idea as pimpMePrep/navigateToPimpMe, for Rapid Fire started directly from Home.
+    @Published var rapidFirePrep: ORPrep?
+    @Published var navigateToRapidFire = false
 
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
     // chips until the user picks one from the specialty row (spec: specialty selection is
@@ -145,6 +148,15 @@ final class HomeViewModel: ObservableObject {
         resolvePrep { [weak self] prep in
             self?.pimpMePrep = prep
             self?.navigateToPimpMe = true
+        }
+    }
+
+    /// Rapid Fire tapped directly from Home: prepares the case exactly like Prepare Me and
+    /// Pimp Me, then heads into the 5-question review instead of PrepView.
+    func startRapidFire() {
+        resolvePrep { [weak self] prep in
+            self?.rapidFirePrep = prep
+            self?.navigateToRapidFire = true
         }
     }
 

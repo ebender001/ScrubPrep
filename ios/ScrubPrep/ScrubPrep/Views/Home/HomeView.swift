@@ -59,7 +59,9 @@ struct HomeView: View {
                         .disabled(!hasCaseDescription)
                         .opacity(hasCaseDescription ? 1 : 0.5)
 
-                        NavigationLink(value: HomeRoute.rapidFire) {
+                        Button {
+                            viewModel.startRapidFire()
+                        } label: {
                             ActionCard(
                                 title: "Rapid Fire",
                                 subtitle: "2 minutes before the OR.",
@@ -94,8 +96,6 @@ struct HomeView: View {
             .navigationTitle("Scrub Prep")
             .navigationDestination(for: HomeRoute.self) { route in
                 switch route {
-                case .rapidFire:
-                    RapidFirePlaceholderView(caseDescription: nil, prep: nil)
                 case .firstDay:
                     FirstDayView()
                 }
@@ -108,6 +108,11 @@ struct HomeView: View {
             .navigationDestination(isPresented: $viewModel.navigateToPimpMe) {
                 if let prep = viewModel.pimpMePrep {
                     PimpMeView(caseDescription: viewModel.caseDescription, prep: prep)
+                }
+            }
+            .navigationDestination(isPresented: $viewModel.navigateToRapidFire) {
+                if let prep = viewModel.rapidFirePrep {
+                    RapidFireView(caseDescription: viewModel.caseDescription, prep: prep)
                 }
             }
             .overlay {
@@ -158,6 +163,12 @@ struct HomeView: View {
                         viewModel.caseDescription = scrubCase.caseDescription
                         viewModel.pimpMePrep = scrubCase.prep
                         viewModel.navigateToPimpMe = true
+                    },
+                    onRapidFire: {
+                        historyStore.markReviewed(scrubCase)
+                        viewModel.caseDescription = scrubCase.caseDescription
+                        viewModel.rapidFirePrep = scrubCase.prep
+                        viewModel.navigateToRapidFire = true
                     }
                 )
             }
@@ -166,7 +177,6 @@ struct HomeView: View {
 }
 
 enum HomeRoute: Hashable {
-    case rapidFire
     case firstDay
 }
 

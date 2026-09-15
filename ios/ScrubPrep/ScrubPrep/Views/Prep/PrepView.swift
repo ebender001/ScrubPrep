@@ -64,7 +64,7 @@ struct PrepView: View {
             .buttonStyle(.borderedProminent)
 
             NavigationLink {
-                RapidFirePlaceholderView(caseDescription: caseDescription, prep: prep)
+                RapidFireView(caseDescription: caseDescription, prep: prep)
             } label: {
                 Label("Rapid Fire", systemImage: "bolt.fill")
                     .font(.headline)
