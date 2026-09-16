@@ -148,7 +148,10 @@ const responseQueue = [];
 https.request = (_options, callback) => {
   const payload = responseQueue.shift();
   if (payload === undefined) throw new Error("no mock response queued");
-  const body = JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] });
+  const body = JSON.stringify({
+    choices: [{ message: { content: JSON.stringify(payload) } }],
+    usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+  });
   const res = {
     statusCode: 200,
     on(event, handler) {
@@ -391,6 +394,27 @@ test("generateRapidFire returns exactly 5 questions via the cloud function", asy
     params: { caseDescription: "Appendectomy", prep: { title: "Appendectomy" } },
   });
   assert.equal(result.questions.length, 5);
+});
+
+test("every AI-backed Cloud Function logs an AIUsageEvent row with token usage and cost", async () => {
+  const events = Object.values(store.AIUsageEvent || {});
+  assert.ok(events.length > 0, "expected at least one AIUsageEvent row from earlier tests in this file");
+
+  const rapidFireEvent = events.find((e) => e.get("functionName") === "generateRapidFire");
+  assert.ok(rapidFireEvent, "expected an AIUsageEvent for generateRapidFire");
+  assert.equal(rapidFireEvent.get("promptTokens"), 100);
+  assert.equal(rapidFireEvent.get("completionTokens"), 50);
+  assert.equal(rapidFireEvent.get("totalTokens"), 150);
+  assert.ok(rapidFireEvent.get("estimatedCostUSD") > 0);
+
+  assert.ok(
+    events.some((e) => e.get("functionName") === "startPimpSession"),
+    "expected an AIUsageEvent for startPimpSession"
+  );
+  assert.ok(
+    events.some((e) => e.get("functionName") === "answerPimpQuestion"),
+    "expected an AIUsageEvent for answerPimpQuestion"
+  );
 });
 
 test("listSpecialties returns catalog rows sorted by sortOrder, name", async () => {

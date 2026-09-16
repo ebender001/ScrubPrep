@@ -38,12 +38,13 @@ struct HomeView: View {
                                 subtitle: "Test me before I scrub.",
                                 description: "Interactive questions tailored to your case.",
                                 systemImage: "flame.fill",
-                                tint: .orange
+                                tint: .orange,
+                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!hasCaseDescription)
-                        .opacity(hasCaseDescription ? 1 : 0.5)
+                        .disabled(!viewModel.isCurrentCasePrepared)
+                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         Button {
                             viewModel.startRapidFire()
@@ -53,12 +54,13 @@ struct HomeView: View {
                                 subtitle: "2 minutes before the OR.",
                                 description: "Five high-yield questions. No lengthy explanations.",
                                 systemImage: "bolt.fill",
-                                tint: .yellow
+                                tint: .yellow,
+                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!hasCaseDescription)
-                        .opacity(hasCaseDescription ? 1 : 0.5)
+                        .disabled(!viewModel.isCurrentCasePrepared)
+                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         NavigationLink(value: HomeRoute.firstDay) {
                             ActionCard(
@@ -120,10 +122,6 @@ struct HomeView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-    }
-
-    private var hasCaseDescription: Bool {
-        !viewModel.caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var errorBinding: Binding<Bool> {

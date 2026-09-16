@@ -56,6 +56,13 @@ function postJSON(host, path, headers, body) {
  * @param {object} params.schema - JSON schema (strict-compatible) for the expected response.
  * @param {number} [params.temperature]
  * @param {typeof postJSON} [params.requestImpl] - injectable for tests.
+ * @param {(usage: {prompt_tokens: number, completion_tokens: number, total_tokens: number}, model: string) => (void|Promise<void>)} [params.onUsage] -
+ *   called with OpenAI's token usage for this call, once the response is parsed, so a
+ *   caller (see cloud/main.js's withUsageTracking) can record cost per Cloud Function
+ *   call without every module along the way (prep.js, pimp.js, rapidFire.js) needing to
+ *   know anything about cost tracking. Never allowed to fail the actual AI call — errors
+ *   from it are swallowed, same "decorative work must never break the primary flow"
+ *   reasoning used throughout this app.
  * @returns {Promise<object>} parsed JSON response body
  */
 async function generateJSON(params) {
@@ -65,6 +72,7 @@ async function generateJSON(params) {
   const schema = params.schema;
   const temperature = typeof params.temperature === "number" ? params.temperature : 0.3;
   const requestFn = params.requestImpl || postJSON;
+  const onUsage = params.onUsage;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -110,6 +118,14 @@ async function generateJSON(params) {
     parsedBody = JSON.parse(response.body);
   } catch (err) {
     throw new AIClientError("OpenAI response was not valid JSON.", { cause: err });
+  }
+
+  if (onUsage && parsedBody.usage) {
+    try {
+      await onUsage(parsedBody.usage, model);
+    } catch (err) {
+      console.error("aiClient onUsage callback failed:", err);
+    }
   }
 
   const choices = parsedBody.choices;

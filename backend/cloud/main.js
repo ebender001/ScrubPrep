@@ -10,6 +10,26 @@ const specialties = require("./scrubPrep/specialties");
 const cases = require("./scrubPrep/cases");
 const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
 const cleanup = require("./scrubPrep/cleanup");
+const aiClient = require("./scrubPrep/aiClient");
+const aiUsage = require("./scrubPrep/aiUsage");
+
+// Every AI-backed Cloud Function passes this as its `deps` so each underlying OpenAI call
+// (prep.js/pimp.js/rapidFire.js all already accept an injectable `generateJSON` for tests)
+// also gets logged as an AIUsageEvent row — see scripts/report-ai-costs.js for turning
+// those into a cost report. `functionName` tags which Cloud Function the call belongs to;
+// `request.user` is attached whenever the client is signed in, even for functions (like
+// generateScrubPrep) that don't themselves require it.
+function withUsageTracking(functionName, request) {
+  return {
+    generateJSON: (params) =>
+      aiClient.generateJSON(
+        Object.assign({}, params, {
+          onUsage: (usage, model) =>
+            aiUsage.recordUsage({ functionName, model, usage, owner: request.user }),
+        })
+      ),
+  };
+}
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
 const MAX_ANSWER_LENGTH = 2000;
@@ -125,7 +145,7 @@ Parse.Cloud.define(
     );
     assertNoPHI(caseDescription);
     try {
-      return await prep.generatePrep(caseDescription);
+      return await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
     } catch (err) {
       if (err instanceof prep.UnrecognizedCaseError) {
         throw new Parse.Error(UNRECOGNIZED_CASE_ERROR_CODE, randomUnrecognizedCaseMessage());
@@ -146,12 +166,15 @@ Parse.Cloud.define(
     const { prep: prepContext, difficulty } = request.params;
 
     const previousQuestions = await collectPreviousQuestions(caseDescription);
-    const { question } = await pimp.generateFirstQuestion({
-      caseDescription,
-      prep: prepContext,
-      difficulty,
-      previousQuestions,
-    });
+    const { question } = await pimp.generateFirstQuestion(
+      {
+        caseDescription,
+        prep: prepContext,
+        difficulty,
+        previousQuestions,
+      },
+      withUsageTracking("startPimpSession", request)
+    );
 
     const PimpSession = Parse.Object.extend("PimpSession");
     const session = new PimpSession();
@@ -202,14 +225,17 @@ Parse.Cloud.define(
     const isFinal = pimp.isSessionComplete(history.length + 1, difficulty);
 
     if (isFinal) {
-      const result = await pimp.evaluateFinalAnswer({
-        caseDescription,
-        prep: prepContext,
-        difficulty,
-        history,
-        question: pendingQuestion,
-        answer,
-      });
+      const result = await pimp.evaluateFinalAnswer(
+        {
+          caseDescription,
+          prep: prepContext,
+          difficulty,
+          history,
+          question: pendingQuestion,
+          answer,
+        },
+        withUsageTracking("answerPimpQuestion", request)
+      );
 
       const updatedHistory = [
         ...history,
@@ -240,14 +266,17 @@ Parse.Cloud.define(
       };
     }
 
-    const result = await pimp.evaluateAnswer({
-      caseDescription,
-      prep: prepContext,
-      difficulty,
-      history,
-      question: pendingQuestion,
-      answer,
-    });
+    const result = await pimp.evaluateAnswer(
+      {
+        caseDescription,
+        prep: prepContext,
+        difficulty,
+        history,
+        question: pendingQuestion,
+        answer,
+      },
+      withUsageTracking("answerPimpQuestion", request)
+    );
 
     const updatedHistory = [
       ...history,
@@ -300,11 +329,14 @@ Parse.Cloud.define(
     );
     const { prep: prepContext } = request.params;
     const previousQuestions = sanitizePreviousQuestions(request.params.previousQuestions);
-    const { questions } = await rapidFire.generateRapidFire({
-      caseDescription,
-      prep: prepContext,
-      previousQuestions,
-    });
+    const { questions } = await rapidFire.generateRapidFire(
+      {
+        caseDescription,
+        prep: prepContext,
+        previousQuestions,
+      },
+      withUsageTracking("generateRapidFire", request)
+    );
     return { questions };
   })
 );
