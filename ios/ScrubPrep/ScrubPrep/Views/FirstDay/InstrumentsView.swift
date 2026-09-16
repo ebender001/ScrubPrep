@@ -1,14 +1,34 @@
 import SwiftUI
 
-/// One instrument in the Instruments 101 reference. `imageName` matches an image set
-/// in Assets.xcassets (a photo of the instrument) — `nil` until that photo has been
-/// added. A row is only tappable once its image exists, so there's never a tap that
-/// opens an empty sheet.
+/// One photo of an instrument — `caption` labels which variant it is (e.g. "Curved",
+/// "Bookwalter") when an instrument has more than one; `nil` for a single-photo instrument.
+private struct InstrumentImage: Identifiable {
+    let id = UUID()
+    let assetName: String
+    let caption: String?
+
+    init(_ assetName: String, caption: String? = nil) {
+        self.assetName = assetName
+        self.caption = caption
+    }
+}
+
+/// One instrument in the Instruments 101 reference. `images` are Assets.xcassets image
+/// set names — empty until photos have been added. A row is only tappable once it has
+/// at least one image, so there's never a tap that opens an empty sheet. An instrument
+/// with multiple images (e.g. curved vs. straight Mayo scissors) shows all of them,
+/// each under its own caption, in the same bottom sheet.
 private struct Instrument: Identifiable {
     let id = UUID()
     let name: String
     let description: String
-    let imageName: String?
+    let images: [InstrumentImage]
+
+    init(name: String, description: String, images: [InstrumentImage] = []) {
+        self.name = name
+        self.description = description
+        self.images = images
+    }
 }
 
 private struct InstrumentCategory: Identifiable {
@@ -18,59 +38,128 @@ private struct InstrumentCategory: Identifiable {
     let instruments: [Instrument]
 }
 
-// imageName values are the exact Assets.xcassets image set names to use once each photo
-// is added — nil everywhere for now since no photos exist yet.
 private let instrumentCategories: [InstrumentCategory] = [
     InstrumentCategory(
         title: "Cutting",
         systemImage: "scissors",
         instruments: [
-            Instrument(name: "Scalpel (Bard-Parker)", description: "The primary tool for skin and tissue incisions.", imageName: "scalpel-bard-parker"),
-            Instrument(name: "Metzenbaum scissors", description: "Fine scissors for dissecting delicate tissue.", imageName: nil),
-            Instrument(name: "Mayo scissors", description: "Heavier scissors for cutting sutures and tougher tissue.", imageName: nil),
+            Instrument(
+                name: "Scalpel (Bard-Parker)",
+                description: "The primary tool for skin and tissue incisions.",
+                images: [InstrumentImage("scalpel-bard-parker")]
+            ),
+            Instrument(
+                name: "Metzenbaum scissors",
+                description: "Fine scissors for dissecting delicate tissue.",
+                images: [InstrumentImage("metzenbaum-scissors")]
+            ),
+            Instrument(
+                name: "Mayo scissors",
+                description: "Heavier scissors for cutting sutures and tougher tissue.",
+                images: [
+                    InstrumentImage("mayo-scissors-curved", caption: "Curved"),
+                    InstrumentImage("mayo-scissors-straight", caption: "Straight"),
+                ]
+            ),
+            Instrument(
+                name: "Iris scissors",
+                description: "Small, fine scissors for precise cutting of delicate tissue or sutures.",
+                images: [InstrumentImage("iris-scissors")]
+            ),
         ]
     ),
     InstrumentCategory(
         title: "Grasping & Holding",
         systemImage: "hand.raised",
         instruments: [
-            Instrument(name: "DeBakey forceps", description: "Atraumatic forceps for handling delicate tissue and vessels.", imageName: nil),
-            Instrument(name: "Adson forceps", description: "Toothed forceps for grasping skin during closure.", imageName: nil),
-            Instrument(name: "Allis clamp", description: "Grasps and holds tissue with minimal crush injury.", imageName: nil),
-            Instrument(name: "Babcock clamp", description: "Gently grasps bowel or other delicate structures.", imageName: nil),
+            Instrument(
+                name: "DeBakey forceps",
+                description: "Atraumatic forceps for handling delicate tissue and vessels.",
+                images: [InstrumentImage("debakey-forceps")]
+            ),
+            Instrument(
+                name: "Adson forceps",
+                description: "Toothed forceps for grasping skin during closure.",
+                images: [InstrumentImage("adson-forceps")]
+            ),
+            Instrument(
+                name: "Allis clamp",
+                description: "Grasps and holds tissue with minimal crush injury.",
+                images: [InstrumentImage("allis-clamp")]
+            ),
+            Instrument(
+                name: "Babcock clamp",
+                description: "Gently grasps bowel or other delicate structures.",
+                images: [InstrumentImage("babcock-clamp")]
+            ),
+            Instrument(
+                name: "Gerald forceps",
+                description: "Fine-tipped forceps for delicate tissue handling, often with a platform tip for microsurgical work.",
+                images: [InstrumentImage("gerald-forceps")]
+            ),
         ]
     ),
     InstrumentCategory(
         title: "Clamping & Hemostasis",
         systemImage: "bolt.heart",
         instruments: [
-            Instrument(name: "Kelly clamp", description: "General-purpose clamp for grasping tissue or vessels.", imageName: nil),
-            Instrument(name: "Mosquito clamp", description: "Small clamp for fine hemostasis.", imageName: nil),
-            Instrument(name: "Right-angle clamp", description: "Used to dissect around and encircle structures.", imageName: nil),
+            Instrument(name: "Kelly clamp", description: "General-purpose clamp for grasping tissue or vessels."),
+            Instrument(name: "Mosquito clamp", description: "Small clamp for fine hemostasis."),
+            Instrument(name: "Right-angle clamp", description: "Used to dissect around and encircle structures."),
         ]
     ),
     InstrumentCategory(
         title: "Retracting",
         systemImage: "rectangle.expand.vertical",
         instruments: [
-            Instrument(name: "Army-Navy retractor", description: "Handheld retractor for shallow wounds.", imageName: nil),
-            Instrument(name: "Richardson retractor", description: "Wide-bladed retractor for deeper exposure.", imageName: nil),
-            Instrument(name: "Self-retaining retractor (Bookwalter, Balfour)", description: "Holds a wound open hands-free.", imageName: nil),
+            Instrument(
+                name: "Army-Navy retractor",
+                description: "Handheld retractor for shallow wounds.",
+                images: [InstrumentImage("army-navy-retractor")]
+            ),
+            Instrument(
+                name: "Richardson retractor",
+                description: "Wide-bladed retractor for deeper exposure.",
+                images: [InstrumentImage("richardson-retractor")]
+            ),
+            Instrument(
+                name: "Self-retaining retractor (Bookwalter, Balfour)",
+                description: "Holds a wound open hands-free.",
+                images: [
+                    InstrumentImage("self-retaining-retractor-bookwalter", caption: "Bookwalter"),
+                    InstrumentImage("self-retaining-retractor-balfour", caption: "Balfour"),
+                ]
+            ),
+            Instrument(
+                name: "Weitlaner retractor",
+                description: "Self-retaining retractor with sharp or blunt prongs, commonly used for smaller or superficial wounds.",
+                images: [InstrumentImage("weitlaner-retractor")]
+            ),
         ]
     ),
     InstrumentCategory(
         title: "Suturing",
         systemImage: "link",
         instruments: [
-            Instrument(name: "Needle driver", description: "Holds and passes the needle during suturing.", imageName: nil),
-            Instrument(name: "Suture scissors", description: "Cuts suture after knot tying.", imageName: nil),
+            Instrument(name: "Needle driver", description: "Holds and passes the needle during suturing."),
+            Instrument(name: "Suture scissors", description: "Cuts suture after knot tying."),
+            Instrument(
+                name: "Ryder needle holder",
+                description: "A slender needle holder favored for fine, delicate suturing.",
+                images: [InstrumentImage("ryder-needle-holder")]
+            ),
+            Instrument(
+                name: "Castroviejo needle holder",
+                description: "A spring-loaded, palm-controlled needle holder used for fine or microsurgical suturing.",
+                images: [InstrumentImage("castroviejo-needle-holder")]
+            ),
         ]
     ),
 ]
 
 /// A quick reference for the instruments most often called for during a case (Learn tab).
-/// An instrument with a photo (see `Instrument.imageName`) is tappable, bringing up a
-/// bottom sheet with its image, name, and description.
+/// An instrument with at least one photo (see `Instrument.images`) is tappable, bringing
+/// up a bottom sheet with its image(s), name, and description.
 struct InstrumentsView: View {
     @State private var selectedInstrument: Instrument?
 
@@ -112,15 +201,15 @@ struct InstrumentsView: View {
 
     @ViewBuilder
     private func instrumentRow(_ instrument: Instrument) -> some View {
-        if instrument.imageName != nil {
+        if instrument.images.isEmpty {
+            instrumentRowContent(instrument, isTappable: false)
+        } else {
             Button {
                 selectedInstrument = instrument
             } label: {
                 instrumentRowContent(instrument, isTappable: true)
             }
             .buttonStyle(.plain)
-        } else {
-            instrumentRowContent(instrument, isTappable: false)
         }
     }
 
@@ -146,19 +235,27 @@ struct InstrumentsView: View {
     }
 }
 
-/// The bottom sheet shown when tapping an instrument with a photo.
+/// The bottom sheet shown when tapping an instrument with at least one photo — every
+/// image shows together (each under its own caption when there's more than one).
 private struct InstrumentDetailSheet: View {
     let instrument: Instrument
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let imageName = instrument.imageName {
-                    Image(imageName)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                ForEach(instrument.images) { image in
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let caption = image.caption {
+                            Text(caption)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        Image(image.assetName)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
                 }
                 Text(instrument.name)
                     .font(.title3.weight(.semibold))
