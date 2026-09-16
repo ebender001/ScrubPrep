@@ -153,14 +153,14 @@ final class SubscriptionManager: ObservableObject {
     // Revocation always wins regardless of what StoreKit's renewal state otherwise says.
     private func statusString(renewalState: Product.SubscriptionInfo.RenewalState?, isRevoked: Bool) -> String {
         if isRevoked { return "revoked" }
+        guard let renewalState else { return "none" }
         switch renewalState {
         case .subscribed: return "active"
         case .inGracePeriod: return "grace_period"
         case .inBillingRetryPeriod: return "billing_retry"
         case .expired: return "expired"
         case .revoked: return "revoked"
-        case .none: return "none"
-        @unknown default: return "none"
+        default: return "none"
         }
     }
 
