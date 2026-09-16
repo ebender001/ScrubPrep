@@ -14,11 +14,13 @@ private struct InstrumentImage: Identifiable {
 }
 
 /// Photo credit shown at the bottom of an instrument's detail sheet, when the photo
-/// isn't the app's own and requires attribution.
+/// isn't the app's own and requires attribution. Reusable across any Instruments 101
+/// entry — not specific to any one source or instrument. `productURL` is optional:
+/// some supplied photos may not have a linkable product page.
 private struct InstrumentAttribution {
-    let credit: String
-    let note: String
-    let url: URL
+    let sourceName: String
+    let usedWithPermission: Bool
+    let productURL: URL?
 }
 
 /// One instrument in the Instruments 101 reference. `images` are Assets.xcassets image
@@ -63,9 +65,9 @@ private let instrumentCategories: [InstrumentCategory] = [
                 description: "Fine scissors for dissecting delicate tissue.",
                 images: [InstrumentImage("metzenbaum-scissors")],
                 attribution: InstrumentAttribution(
-                    credit: "Image courtesy of Scanlan International.",
-                    note: "Used with permission",
-                    url: URL(string: "https://www.scanlaninternational.com/product/7007-216-2sc/")!
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/7007-216-2sc/")
                 )
             ),
             Instrument(
@@ -269,6 +271,7 @@ struct InstrumentsView: View {
 /// image shows together (each under its own caption when there's more than one).
 private struct InstrumentDetailSheet: View {
     let instrument: Instrument
+    @State private var detent: PresentationDetent = .medium
 
     var body: some View {
         ScrollView {
@@ -294,25 +297,63 @@ private struct InstrumentDetailSheet: View {
                     .foregroundStyle(.secondary)
 
                 if let attribution = instrument.attribution {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(attribution.credit)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
-                        HStack(spacing: 4) {
-                            Text(attribution.note)
-                                .font(.caption.italic())
-                                .foregroundStyle(.secondary)
-                            Link("View instrument →", destination: attribution.url)
-                                .font(.caption.italic())
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Divider()
+                        InstrumentAttributionView(attribution: attribution)
                     }
                 }
             }
             .padding()
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+    }
+}
+
+/// Small, subordinate photo-credit line for an instrument photo supplied by an outside
+/// source — deliberately understated so it never competes with the instrument's name or
+/// educational description above it. Reusable for any Instruments 101 entry with an
+/// `InstrumentAttribution`, not tied to any particular source or instrument.
+private struct InstrumentAttributionView: View {
+    let attribution: InstrumentAttribution
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            (
+                Text("Image courtesy of ")
+                    .foregroundStyle(.secondary)
+                + Text(attribution.sourceName)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+            )
+            .font(.footnote)
+
+            if attribution.usedWithPermission || attribution.productURL != nil {
+                HStack(spacing: 4) {
+                    if attribution.usedWithPermission {
+                        Text("Used with permission")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if attribution.usedWithPermission, attribution.productURL != nil {
+                        Text("·")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let productURL = attribution.productURL {
+                        Link(destination: productURL) {
+                            HStack(spacing: 2) {
+                                Text("View at \(attribution.sourceName)")
+                                Image(systemName: "arrow.up.right")
+                                    .font(.caption2.weight(.semibold))
+                            }
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(Color.accentColor)
+                    }
+                }
+            }
+        }
     }
 }
 
