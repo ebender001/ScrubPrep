@@ -38,7 +38,8 @@ struct HomeView: View {
                                 subtitle: "Test me before I scrub.",
                                 description: "Interactive questions tailored to your case.",
                                 systemImage: "flame.fill",
-                                tint: .orange
+                                tint: .orange,
+                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)
@@ -53,7 +54,8 @@ struct HomeView: View {
                                 subtitle: "2 minutes before the OR.",
                                 description: "Five high-yield questions. No lengthy explanations.",
                                 systemImage: "bolt.fill",
-                                tint: .yellow
+                                tint: .yellow,
+                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)

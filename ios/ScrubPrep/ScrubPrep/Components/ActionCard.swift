@@ -7,6 +7,10 @@ struct ActionCard: View {
     let description: String
     let systemImage: String
     let tint: Color
+    /// Shown under `description` (e.g. "Unlocks after Prepare Me") when this card is
+    /// currently disabled for a reason that isn't obvious from dimming alone. `nil` when
+    /// the card has no such condition (e.g. First Day, which is never locked).
+    var lockedMessage: String? = nil
 
     var body: some View {
         HStack(spacing: 14) {
@@ -25,6 +29,12 @@ struct ActionCard: View {
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if let lockedMessage {
+                    Label(lockedMessage, systemImage: "lock.fill")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 1)
+                }
             }
 
             Spacer()
