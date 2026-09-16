@@ -2,183 +2,147 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const subscriptions = require("../cloud/scrubPrep/subscriptions");
 
-function fakeOwner(id) {
-  return { id };
-}
-
-function fakeEntitlement(attrs) {
-  const state = { subscriptionStatus: "none", appAccountToken: "token-owner", ...attrs };
+function fakeUser(attrs = {}) {
+  const state = { subscriptionStatus: "none", hasUsedComplimentaryCase: false, ...attrs };
+  const saveCalls = [];
   return {
-    id: state.id || "entitlement1",
     get: (key) => state[key],
     set: (key, value) => {
       state[key] = value;
     },
-    save: async function () {
+    save: async function (_data, options) {
+      saveCalls.push(options);
       return this;
     },
     _state: state,
+    _saveCalls: saveCalls,
   };
 }
 
-test("deriveSubscriptionStatus: revoked wins over everything else", () => {
-  const now = new Date("2026-01-15T00:00:00Z");
-  const status = subscriptions.deriveSubscriptionStatus({
-    now,
-    expiresAt: new Date("2026-02-01T00:00:00Z"), // still in the future
-    revokedAt: new Date("2026-01-10T00:00:00Z"), // but revoked
-    gracePeriodExpiresAt: null,
-    isInBillingRetryPeriod: false,
-  });
-  assert.equal(status, "revoked");
-});
-
-test("deriveSubscriptionStatus: active grace period counts as access even if expiresDate has passed", () => {
-  const now = new Date("2026-01-15T00:00:00Z");
-  const status = subscriptions.deriveSubscriptionStatus({
-    now,
-    expiresAt: new Date("2026-01-10T00:00:00Z"), // already past
-    revokedAt: null,
-    gracePeriodExpiresAt: new Date("2026-01-20T00:00:00Z"), // grace extends past now
-    isInBillingRetryPeriod: false,
-  });
-  assert.equal(status, "grace_period");
-});
-
-test("deriveSubscriptionStatus: active when expiresDate is in the future", () => {
-  const now = new Date("2026-01-15T00:00:00Z");
-  const status = subscriptions.deriveSubscriptionStatus({
-    now,
-    expiresAt: new Date("2026-02-01T00:00:00Z"),
-    revokedAt: null,
-    gracePeriodExpiresAt: null,
-    isInBillingRetryPeriod: false,
-  });
-  assert.equal(status, "active");
-});
-
-test("deriveSubscriptionStatus: billing_retry when expired but Apple is still retrying", () => {
-  const now = new Date("2026-01-15T00:00:00Z");
-  const status = subscriptions.deriveSubscriptionStatus({
-    now,
-    expiresAt: new Date("2026-01-10T00:00:00Z"),
-    revokedAt: null,
-    gracePeriodExpiresAt: null,
-    isInBillingRetryPeriod: true,
-  });
-  assert.equal(status, "billing_retry");
-});
-
-test("deriveSubscriptionStatus: expired when nothing else applies", () => {
-  const now = new Date("2026-01-15T00:00:00Z");
-  const status = subscriptions.deriveSubscriptionStatus({
-    now,
-    expiresAt: new Date("2026-01-10T00:00:00Z"),
-    revokedAt: null,
-    gracePeriodExpiresAt: null,
-    isInBillingRetryPeriod: false,
-  });
-  assert.equal(status, "expired");
-});
-
 test("isEntitlementActive is true for active and grace_period, false otherwise", () => {
-  assert.equal(subscriptions.isEntitlementActive(fakeEntitlement({ subscriptionStatus: "active" })), true);
-  assert.equal(subscriptions.isEntitlementActive(fakeEntitlement({ subscriptionStatus: "grace_period" })), true);
+  assert.equal(subscriptions.isEntitlementActive(fakeUser({ subscriptionStatus: "active" })), true);
+  assert.equal(subscriptions.isEntitlementActive(fakeUser({ subscriptionStatus: "grace_period" })), true);
   for (const status of ["none", "expired", "revoked", "billing_retry"]) {
-    assert.equal(subscriptions.isEntitlementActive(fakeEntitlement({ subscriptionStatus: status })), false, status);
+    assert.equal(subscriptions.isEntitlementActive(fakeUser({ subscriptionStatus: status })), false, status);
   }
 });
 
-test("applyVerifiedTransaction ignores a transaction whose appAccountToken belongs to a different Scrub Prep account", async () => {
-  const entitlement = fakeEntitlement({ appAccountToken: "owner-token" });
-  const owner = fakeOwner("u1");
-  const result = await subscriptions.applyVerifiedTransaction(
-    {
-      owner,
-      decodedTransaction: {
-        appAccountToken: "someone-elses-token",
-        expiresDate: Date.now() + 100000,
-        signedDate: Date.now(),
-        productId: "dev.benderapps.ScrubPrep.subscription.monthly",
-      },
-    },
-    { fetchUserEntitlement: async () => entitlement }
-  );
-  assert.equal(result.applied, false);
-  assert.equal(result.reason, "appAccountTokenMismatch");
-  assert.equal(entitlement.get("subscriptionStatus"), "none", "must not have been overwritten");
+test("checkAccess allows an active subscriber regardless of complimentary status", () => {
+  const user = fakeUser({ subscriptionStatus: "active", hasUsedComplimentaryCase: true });
+  assert.doesNotThrow(() => subscriptions.checkAccess(user));
 });
 
-test("applyVerifiedTransaction ignores stale/out-of-order data older than what's already stored", async () => {
-  const entitlement = fakeEntitlement({
-    appAccountToken: "owner-token",
-    subscriptionStatus: "active",
-    subscriptionLastSignedDate: 2000,
-  });
-  const owner = fakeOwner("u1");
-  const result = await subscriptions.applyVerifiedTransaction(
-    {
-      owner,
-      decodedTransaction: {
-        appAccountToken: "owner-token",
-        expiresDate: Date.now() - 1000000, // would look "expired" if applied
-        signedDate: 1000, // older than the entitlement's last-applied signedDate
-        productId: "dev.benderapps.ScrubPrep.subscription.monthly",
-      },
-    },
-    { fetchUserEntitlement: async () => entitlement }
-  );
-  assert.equal(result.applied, false);
-  assert.equal(result.reason, "staleData");
-  assert.equal(entitlement.get("subscriptionStatus"), "active", "must not have regressed");
+test("checkAccess allows a non-subscriber who hasn't used their complimentary case", () => {
+  const user = fakeUser({ subscriptionStatus: "none", hasUsedComplimentaryCase: false });
+  assert.doesNotThrow(() => subscriptions.checkAccess(user));
 });
 
-test("applyVerifiedTransaction applies a newer, matching transaction and updates status/expiry", async () => {
-  const entitlement = fakeEntitlement({ appAccountToken: "owner-token", subscriptionLastSignedDate: 1000 });
-  const owner = fakeOwner("u1");
-  const futureExpiry = Date.now() + 1000000;
-  const result = await subscriptions.applyVerifiedTransaction(
-    {
-      owner,
-      decodedTransaction: {
-        appAccountToken: "owner-token",
-        expiresDate: futureExpiry,
-        signedDate: 2000,
-        productId: "dev.benderapps.ScrubPrep.subscription.quarterly",
-        originalTransactionId: "orig123",
-      },
-    },
-    { fetchUserEntitlement: async () => entitlement }
-  );
-  assert.equal(result.applied, true);
-  assert.equal(entitlement.get("subscriptionStatus"), "active");
-  assert.equal(entitlement.get("subscriptionProductId"), "dev.benderapps.ScrubPrep.subscription.quarterly");
-  assert.equal(entitlement.get("subscriptionExpiresAt").getTime(), futureExpiry);
-  assert.equal(entitlement.get("subscriptionOriginalTransactionId"), "orig123");
+test("checkAccess throws SubscriptionRequiredError for a non-subscriber who already used it", () => {
+  const user = fakeUser({ subscriptionStatus: "expired", hasUsedComplimentaryCase: true });
+  assert.throws(() => subscriptions.checkAccess(user), subscriptions.SubscriptionRequiredError);
 });
 
-test("applyVerifiedTransaction applies grace-period renewal info alongside the transaction", async () => {
-  const entitlement = fakeEntitlement({ appAccountToken: "owner-token" });
-  const owner = fakeOwner("u1");
-  const graceExpiry = Date.now() + 500000;
-  await subscriptions.applyVerifiedTransaction(
+test("markComplimentaryCaseUsed sets the flag and saves via the Master Key", async () => {
+  const user = fakeUser();
+  await subscriptions.markComplimentaryCaseUsed(user);
+  assert.equal(user.get("hasUsedComplimentaryCase"), true);
+  assert.deepEqual(user._saveCalls, [{ useMasterKey: true }]);
+});
+
+test("markComplimentaryCaseUsed is a no-op (no extra save) if already used", async () => {
+  const user = fakeUser({ hasUsedComplimentaryCase: true });
+  await subscriptions.markComplimentaryCaseUsed(user);
+  assert.equal(user._saveCalls.length, 0);
+});
+
+test("applyReportedSubscriptionStatus stores every reported field and stamps subscriptionLastReportedAt", async () => {
+  const user = fakeUser();
+  const now = new Date("2026-02-01T00:00:00Z");
+  const expiresAt = new Date("2026-03-01T00:00:00Z");
+  await subscriptions.applyReportedSubscriptionStatus(
+    user,
     {
-      owner,
-      decodedTransaction: {
-        appAccountToken: "owner-token",
-        expiresDate: Date.now() - 1000, // just past — would be "expired" without grace
-        signedDate: 5000,
-        productId: "dev.benderapps.ScrubPrep.subscription.monthly",
-      },
-      decodedRenewalInfo: {
-        gracePeriodExpiresDate: graceExpiry,
-        autoRenewStatus: 1,
-        autoRenewProductId: "dev.benderapps.ScrubPrep.subscription.monthly",
-        isInBillingRetryPeriod: true,
-      },
+      status: "active",
+      productId: "dev.benderapps.ScrubPrep.subscription.monthly",
+      expiresAt,
+      gracePeriodExpiresAt: null,
+      autoRenewStatus: true,
+      autoRenewProductId: "dev.benderapps.ScrubPrep.subscription.monthly",
+      originalTransactionId: "orig123",
     },
-    { fetchUserEntitlement: async () => entitlement }
+    { now: () => now }
   );
-  assert.equal(entitlement.get("subscriptionStatus"), "grace_period");
-  assert.equal(entitlement.get("subscriptionAutoRenewStatus"), true);
+  assert.equal(user.get("subscriptionStatus"), "active");
+  assert.equal(user.get("subscriptionProductId"), "dev.benderapps.ScrubPrep.subscription.monthly");
+  assert.equal(user.get("subscriptionExpiresAt"), expiresAt);
+  assert.equal(user.get("subscriptionAutoRenewStatus"), true);
+  assert.equal(user.get("subscriptionOriginalTransactionId"), "orig123");
+  assert.equal(user.get("subscriptionLastReportedAt"), now);
+  assert.deepEqual(user._saveCalls, [{ useMasterKey: true }]);
+});
+
+test("getAccessStatus: active subscriber can always generate, regardless of complimentary status", () => {
+  const user = fakeUser({ subscriptionStatus: "active", hasUsedComplimentaryCase: true, subscriptionProductId: "p" });
+  const status = subscriptions.getAccessStatus(user);
+  assert.equal(status.canGenerateNewCase, true);
+  assert.equal(status.subscription.isActive, true);
+});
+
+test("getAccessStatus: non-subscriber who hasn't used the complimentary case can generate", () => {
+  const status = subscriptions.getAccessStatus(fakeUser());
+  assert.equal(status.canGenerateNewCase, true);
+  assert.equal(status.hasUsedComplimentaryCase, false);
+});
+
+test("getAccessStatus: non-subscriber who has used the complimentary case cannot generate", () => {
+  const status = subscriptions.getAccessStatus(fakeUser({ hasUsedComplimentaryCase: true }));
+  assert.equal(status.canGenerateNewCase, false);
+});
+
+test("getAccessStatus: accessEndsAt reflects the grace-period date while in grace, else plain expiry", () => {
+  const graceExpiry = new Date("2026-04-01T00:00:00Z");
+  const plainExpiry = new Date("2026-03-15T00:00:00Z");
+  const inGrace = subscriptions.getAccessStatus(
+    fakeUser({
+      subscriptionStatus: "grace_period",
+      subscriptionExpiresAt: plainExpiry,
+      subscriptionGracePeriodExpiresAt: graceExpiry,
+    })
+  );
+  assert.equal(inGrace.subscription.accessEndsAt, graceExpiry.toISOString());
+
+  const active = subscriptions.getAccessStatus(
+    fakeUser({ subscriptionStatus: "active", subscriptionExpiresAt: plainExpiry })
+  );
+  assert.equal(active.subscription.accessEndsAt, plainExpiry.toISOString());
+});
+
+test("registerProtectedFieldsGuard rejects a non-master write that touches a protected field", async () => {
+  const hooks = {};
+  const fakeParseCloud = { beforeSave: (name, handler) => { hooks[name] = handler; } };
+  const originalCloud = global.Parse && global.Parse.Cloud;
+  global.Parse = global.Parse || {};
+  global.Parse.Cloud = fakeParseCloud;
+  global.Parse.Error = global.Parse.Error || class extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+    }
+  };
+  global.Parse.Error.OPERATION_FORBIDDEN = 119;
+
+  subscriptions.registerProtectedFieldsGuard();
+  const hook = hooks["_User"];
+
+  const existingDirtyObject = { existed: () => true, dirty: (field) => field === "hasUsedComplimentaryCase" };
+  assert.throws(() => hook({ master: false, object: existingDirtyObject }));
+  assert.doesNotThrow(() => hook({ master: true, object: existingDirtyObject }));
+  assert.doesNotThrow(() => hook({ master: false, object: { existed: () => true, dirty: () => false } }));
+
+  // A brand-new user (signup) reports every field as "dirty" — must never be blocked by
+  // this guard, or signup itself would break.
+  const newUserObject = { existed: () => false, dirty: () => true };
+  assert.doesNotThrow(() => hook({ master: false, object: newUserObject }));
+
+  if (originalCloud) global.Parse.Cloud = originalCloud;
 });

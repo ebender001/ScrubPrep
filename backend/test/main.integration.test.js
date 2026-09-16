@@ -36,10 +36,10 @@ class FakeParseObject {
   existed() {
     return !!this.id;
   }
-  async save() {
+  async save(_data, options) {
     const hook = beforeSaveHooks[this.className];
     if (hook) {
-      await hook({ object: this });
+      await hook({ object: this, master: !!(options && options.useMasterKey) });
     }
     const now = new Date();
     if (!this.id) {
@@ -152,7 +152,17 @@ global.Parse = {
 };
 
 process.env.OPENAI_API_KEY = "test-key";
-process.env.APPLE_BUNDLE_ID = "dev.benderapps.ScrubPrep";
+
+// A real fake _User (not a plain {id} literal) — subscriptions.js calls .get()/.set()/
+// .save() directly on `request.user`, so test fixtures need to support that, not just be
+// usable as an opaque pointer value (which a plain object would still work for, e.g. as
+// ScrubCase.owner).
+async function fakeUser() {
+  const UserClass = Parse.Object.extend("_User");
+  const user = new UserClass();
+  await user.save(null, { useMasterKey: true });
+  return user;
+}
 
 // https.request mock: pops the next canned OpenAI-shaped response off a queue.
 // aiClient.js calls `https.request` directly (not global fetch), so we patch
@@ -265,7 +275,7 @@ test("listCases/saveCase/markCaseReviewed/deleteCase require a signed-in user", 
 });
 
 test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp Me sessions)", async () => {
-  const owner = { id: "user_1" };
+  const owner = await fakeUser();
 
   const saved = await registry.saveCase({
     params: { caseDescription: "Lap chole for acute cholecystitis", prep: { title: "Lap Chole" } },
@@ -286,7 +296,7 @@ test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp
   assert.deepEqual(listed.cases[0].prep, { title: "Lap Chole v2" });
 
   // A different user's cases are never visible.
-  const otherOwnerListed = await registry.listCases({ params: {}, user: { id: "user_2" } });
+  const otherOwnerListed = await registry.listCases({ params: {}, user: await fakeUser() });
   assert.equal(otherOwnerListed.cases.length, 0);
 
   const reviewed = await registry.markCaseReviewed({ params: { caseId: saved.case.id }, user: owner });
@@ -327,7 +337,7 @@ test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp
 });
 
 test("savePimpMeSession overwrites the existing row for the same (case, difficulty) instead of duplicating", async () => {
-  const owner = { id: "user_3" };
+  const owner = await fakeUser();
   await registry.saveCase({
     params: { caseDescription: "CABG x3", prep: { title: "CABG" } },
     user: owner,
@@ -374,11 +384,12 @@ test("generateScrubPrep requires a signed-in user", async () => {
 });
 
 test("generateScrubPrep rejects obvious PHI before calling the AI", async () => {
+  const user = await fakeUser();
   await assert.rejects(
     () =>
       registry.generateScrubPrep({
         params: { caseDescription: "Lap chole, patient DOB 1/1/1980" },
-        user: { id: "phi_test_user" },
+        user,
       }),
     (err) => {
       assert.match(err.message, /remove patient names/);
@@ -388,7 +399,7 @@ test("generateScrubPrep rejects obvious PHI before calling the AI", async () => 
 });
 
 test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish input, and preserves complimentary eligibility on failure", async () => {
-  const owner = { id: "gibberish_test_user" };
+  const owner = await fakeUser();
   responseQueue.push({
     recognized: false,
     title: "Unrecognized Case",
@@ -417,7 +428,7 @@ test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish i
 });
 
 test("generateScrubPrep: a new user's first case is complimentary; a second attempt after saving is paywalled", async () => {
-  const owner = { id: "complimentary_flow_user" };
+  const owner = await fakeUser();
   responseQueue.push({
     recognized: true,
     title: "Appendectomy",
@@ -458,7 +469,7 @@ test("generateScrubPrep: a new user's first case is complimentary; a second atte
 });
 
 test("generateScrubPrep: saveCase marking the flag used is idempotent across repeated calls", async () => {
-  const owner = { id: "idempotent_save_user" };
+  const owner = await fakeUser();
   responseQueue.push({
     recognized: true,
     title: "First",
@@ -478,6 +489,60 @@ test("generateScrubPrep: saveCase marking the flag used is idempotent across rep
   await registry.saveCase({ params: { caseDescription: "First", prep: prep1 }, user: owner });
   const status = await registry.getAccessStatus({ params: {}, user: owner });
   assert.equal(status.hasUsedComplimentaryCase, true);
+});
+
+test("syncSubscriptionStatus stores the client-reported status and unlocks generation for a subscriber", async () => {
+  const owner = await fakeUser();
+  owner.set("hasUsedComplimentaryCase", true); // simulate having already used the free case
+
+  await assert.rejects(
+    () => registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner }),
+    (err) => {
+      assert.equal(err.code, 4002);
+      return true;
+    }
+  );
+
+  const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const synced = await registry.syncSubscriptionStatus({
+    params: {
+      status: "active",
+      productId: "dev.benderapps.ScrubPrep.subscription.monthly",
+      expiresAt: future,
+      autoRenewStatus: true,
+      autoRenewProductId: "dev.benderapps.ScrubPrep.subscription.monthly",
+      originalTransactionId: "orig-123",
+    },
+    user: owner,
+  });
+  assert.equal(synced.subscription.isActive, true);
+  assert.equal(synced.canGenerateNewCase, true);
+
+  responseQueue.push({
+    recognized: true,
+    title: "CABG",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  const prep = await registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner });
+  assert.equal(prep.title, "CABG");
+});
+
+test("syncSubscriptionStatus rejects an invalid status value", async () => {
+  const owner = await fakeUser();
+  await assert.rejects(
+    () => registry.syncSubscriptionStatus({ params: { status: "not_a_real_status" }, user: owner }),
+    (err) => {
+      assert.equal(err.code, 141);
+      return true;
+    }
+  );
 });
 
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {

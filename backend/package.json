@@ -7,13 +7,6 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test",
-    "build:vendor": "node scripts/build-app-store-vendor-bundle.js"
-  },
-  "dependencies": {
-    "@apple/app-store-server-library": "3.1.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.28.2"
+    "test": "node --test"
   }
 }

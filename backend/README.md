@@ -21,9 +21,7 @@ cloud/
     cleanup.js                  cleanupOldPimpSessions job — deletes stale ephemeral PimpSession rows
     aiCost.js                    USD-per-1M-token pricing table + estimateCostUSD(model, usage)
     aiUsage.js                   recordUsage(...) — logs one AIUsageEvent row per OpenAI API call
-    subscriptions.js              subscription entitlement + complimentary-first-case allowance (access control for generateScrubPrep)
-    appStoreVerifier.js            verifies Apple-signed JWS data (client-submitted transactions/renewal info) — no API credentials needed
-    vendor/appStoreServerLibrary.bundle.js  pre-built, dependency-free bundle of @apple/app-store-server-library (see below — do not hand-edit)
+    subscriptions.js              subscription entitlement + complimentary-first-case allowance (access control for generateScrubPrep), and the _User beforeSave guard protecting subscription fields from direct client writes
 test/                          node:test unit tests (mock the AI client, no network/Parse needed)
 scripts/
   lib/parseRest.js               shared Parse REST API helper (used by the scripts below)
@@ -34,9 +32,7 @@ scripts/
   setup-user-data-schema.js      creates/updates the ScrubCase and PimpMeSession classes with no public CLP access
   setup-ai-usage-schema.js      creates/updates the AIUsageEvent class with no public CLP access
   report-ai-costs.js            prints an AI cost report (by Cloud Function, by model, projected monthly) from AIUsageEvent rows
-  setup-subscription-schema.js  creates/updates UserEntitlement with no public CLP access
-  build-app-store-vendor-bundle.js  bundles @apple/app-store-server-library into a single dependency-free file (see below)
-cloud/certs/AppleRootCA-G3.cer   Apple's official root certificate — required by appStoreVerifier.js, safe to commit (it's public). Lives under cloud/ (not the project root) because that's the only folder `b4a deploy` ships.
+  setup-user-subscription-fields.js  adds the subscription/complimentary-case fields to the built-in _User class
 .parse.project                  Parse CLI project config (safe to commit — no secrets)
 .parse.local                    Parse CLI local config incl. Master Key — gitignored, never commit
 ```
@@ -58,7 +54,7 @@ cloud/certs/AppleRootCA-G3.cer   Apple's official root certificate — required 
 | `listPimpMeSessions` | `{ caseDescription }` (requires sign-in) | `{ sessions: [{ id, caseDescription, difficulty, transcript, summary, completedAt }] }`, every difficulty completed for that case |
 | `savePimpMeSession` | `{ caseDescription, difficulty, transcript, summary }` (requires sign-in) | `{ session: {...} }` — inserts, or overwrites the existing row for that (case, difficulty) |
 | `getAccessStatus` | `{ pendingIdempotencyKey? }` (requires sign-in) | `{ appAccountToken, canGenerateNewCase, hasUsedComplimentaryCase, subscription: {...}, pendingReservationResolved }` — the client's single source of truth for paywall/subscription UI state |
-| `syncSubscriptionStatus` | `{ signedTransactionInfo, signedRenewalInfo? }` (requires sign-in) | Verifies the client-submitted Apple-signed data and applies it, then returns the same shape as `getAccessStatus` |
+| `syncSubscriptionStatus` | `{ status, productId?, expiresAt?, gracePeriodExpiresAt?, autoRenewStatus?, autoRenewProductId?, originalTransactionId? }` (requires sign-in) | Records subscription state the client already verified on-device via StoreKit 2, then returns the same shape as `getAccessStatus` |
 
 `difficulty` is one of `easy | typical | tough` (defaults to `typical`). Session length scales with difficulty (4 questions for easy, 5 for typical, 6 for tough).
 
@@ -105,23 +101,45 @@ This prints total estimated cost, a breakdown by Cloud Function and by model, av
 
 Every signed-in user may generate exactly one case for free (their "complimentary case");
 generating any additional case requires an active auto-renewing subscription (two
-products, same access level, different billing durations — see the iOS README/App
-docs for the exact App Store Connect product IDs). This is enforced entirely server-side
+products, same access level, different billing durations). This is enforced server-side
 in `generateScrubPrep` — the client's own UI state is only a convenience, never trusted.
 
-One Parse class backs this (`cloud/scrubPrep/subscriptions.js`), with every CLP locked to
-nobody (Master Key/Cloud Code only — same lockdown as `ScrubCase`/`PimpMeSession`):
+**Trust model:** this backend does NOT independently re-verify Apple's cryptographic
+signature on subscription data. It trusts StoreKit 2's own on-device verification
+(`VerificationResult` — real Apple cryptography, just checked on the client rather than
+re-checked here) and has the iOS app report the already-verified transaction's plain
+fields via `syncSubscriptionStatus`. This was a deliberate simplification: an earlier
+version of this feature independently re-verified Apple's signature server-side (needing
+a JWS-verification library, Apple's root certificate, and workarounds for Back4App's
+classic Cloud Code deploy not shipping `node_modules`) — that's more rigorous but is not
+what most comparable subscription apps at this price point do, and the added complexity
+wasn't worth it here. **Accepted tradeoff:** a jailbroken device or a tampered client
+binary could in principle report a fabricated "I'm subscribed" status. It canNOT, however,
+un-set an already-used complimentary flag or otherwise directly write these fields via the
+normal client SDK (see the beforeSave guard below) — that path is blocked regardless.
 
-- **`UserEntitlement`** — one row per user: the verified subscription state
-  (`subscriptionStatus: none|active|grace_period|billing_retry|expired|revoked`,
-  `subscriptionExpiresAt`, etc.), `appAccountToken` (a UUID, generated the first time it's
-  needed — required because StoreKit 2's `appAccountToken` purchase option needs a real
-  UUID, and Parse's `_User.objectId` isn't one), and a plain `hasUsedComplimentaryCase`
-  boolean. **Access is always exactly**
-  `subscriptionStatus === "active" || subscriptionStatus === "grace_period"` — every
-  subscription field on this row comes straight from an Apple-signed transaction/renewal
-  info via `applyVerifiedTransaction`, never computed locally (no adding months to a date,
-  no manually extending access on a restore or a repeated notification).
+State lives directly on `_User` (see `scripts/setup-user-subscription-fields.js`), not a
+separate Parse class — there's nothing to look up or create, since `request.user` always
+already exists:
+
+- `hasUsedComplimentaryCase` (Boolean)
+- `subscriptionStatus` (`none|active|grace_period|billing_retry|expired|revoked`),
+  `subscriptionProductId`, `subscriptionExpiresAt`, `subscriptionGracePeriodExpiresAt`,
+  `subscriptionAutoRenewStatus`, `subscriptionAutoRenewProductId`,
+  `subscriptionOriginalTransactionId`, `subscriptionLastReportedAt` — all set verbatim from
+  what the client reports in `syncSubscriptionStatus`, never computed locally (no adding
+  months to a date, no manually extending access).
+
+**Access is always exactly** `subscriptionStatus === "active" || subscriptionStatus === "grace_period"`.
+
+These fields aren't writable by the client SDK despite living on `_User`, whose CLP
+intentionally allows authenticated self-update (required for signup/login, and for e.g.
+changing email). `cloud/scrubPrep/subscriptions.js`'s `registerProtectedFieldsGuard`
+installs a `beforeSave` trigger on `_User` that rejects any *non*-Master-Key save touching
+one of these specific fields — allowing normal self-updates (email, etc.) through, and
+(important, and covered by a test) explicitly not blocking the very first signup save,
+since a brand-new `_User` reports every field as "dirty" regardless of what the client
+actually set.
 
 `generateScrubPrep` checks `subscriptions.checkAccess` (active subscription, or
 `!hasUsedComplimentaryCase`) *before* calling OpenAI; `saveCase` sets the flag to `true`
@@ -133,70 +151,19 @@ their one free case, and a failed generation never touches the flag at all.
 This is intentionally not a reservation/idempotency-key system — a genuinely concurrent
 double-tap can, at worst, trigger two OpenAI calls before the flag is set, but can never
 result in more than one saved complimentary case (the flag only ever transitions
-false → true, once, in `saveCase`). A stricter reservation-based design was considered and
-deliberately dropped as disproportionate complexity for a low-price subscription product;
-see `cloud/scrubPrep/subscriptions.js`'s file comment for the full reasoning. The flag
-lives on `UserEntitlement` (fully Master-Key-locked) rather than as a field on `_User`
-directly, since `_User`'s CLP intentionally allows authenticated self-update (required for
-signup/login) — a client-writable boolean there could be reset via the SDK directly.
+false → true, once, in `saveCase`).
 
-`cloud/scrubPrep/appStoreVerifier.js` verifies a client-submitted transaction/renewal info
-against Apple's bundled root certificate (`cloud/certs/AppleRootCA-G3.cer`) — **no App
-Store Connect API credentials are needed for this**, only
-`APPLE_BUNDLE_ID`/`APPLE_APP_STORE_ENVIRONMENT` (see Setup below). The only path that
-feeds verified data into `UserEntitlement` is **client push**: `syncSubscriptionStatus`,
-called by the iOS app with the signed transaction it already holds, right after a
-purchase, on restore, on every launch/foreground, and whenever StoreKit 2's
-`Transaction.updates` delivers something new.
-
-**There is deliberately no App Store Server Notifications V2 (webhook) support.** That
-was the original design, but a real `curl` test against this app's deployed Cloud
-Function confirmed Back4App's hosted gateway rejects Apple's webhook calls outright: Apple
-can't send Parse's usual `X-Parse-Application-Id` header, and the documented query-string
-fallback (`?_ApplicationId=...`) returns a plain 401 here — it isn't just unverified, it's
-confirmed not to work on this app. Rather than stand up a separate relay service just to
-receive a push this system doesn't strictly need, access enforcement relies on the
-already-correct client-push design: `generateScrubPrep`'s check is a simple
-`expiresAt > now` comparison against the last-verified date, which stays correct on its
-own through a renewal (the old date was still valid) and through natural expiration (the
-stored date was already right — no push needed to "learn" that). The one real gap this
-leaves is a refund/revocation processed while the app happens to be closed, which simply
-delays losing access until the app is next opened and re-syncs — a small, non-security
-exposure judged an acceptable simplification, not an oversight. If tighter, real-time
-handling of refunds is ever needed, look at either a small external relay (e.g. a
-Cloudflare Worker that verifies Apple's webhook and forwards it to this app's Cloud
-Function with proper headers) or the App Store Server API's on-demand status endpoint
-(needs a real App Store Connect API key, which this implementation deliberately avoids
-requiring).
-
-Both `appAccountToken` mismatches (a purchase legitimately made under a *different* Scrub
-Prep account on the same Apple ID) and stale/out-of-order data (an old notification
-arriving after a newer one already updated state, judged by the transaction's own
-Apple-signed `signedDate` — never wall-clock arrival order) are detected and ignored
-rather than applied — see `applyVerifiedTransaction`'s tests in `test/subscriptions.test.js`.
+There's no App Store Server Notifications V2 (webhook) support and no independent
+App Store Server API polling — neither is needed given the trust model above: the iOS
+client reports its current StoreKit-verified status on every launch/foreground/purchase/
+restore/`Transaction.updates` event, which is sufficient to keep `_User`'s subscription
+fields correct.
 
 Set up the schema once (safe to re-run):
 
 ```
-node scripts/setup-subscription-schema.js
+node scripts/setup-user-subscription-fields.js
 ```
-
-#### Testing purchases locally with Xcode's StoreKit Configuration file
-
-Transactions from Xcode's local `.storekit` config (no real Apple ID involved) are signed
-with a synthetic local key that **cannot** pass real cryptographic verification — that's
-inherent to how local StoreKit testing works, not a bug. To still exercise the full
-purchase → paywall-dismisses loop locally, set the *deployed* backend's
-`APPLE_APP_STORE_ENVIRONMENT` dashboard env var to `Xcode`: `appStoreVerifier.js` then
-skips signature verification for transactions whose own decoded payload also claims
-`environment: "Xcode"` (see its file comment for the full reasoning and the safeguards).
-
-**This must be switched back to `Sandbox` before testing with a real sandbox tester Apple
-ID, and to `Production` before shipping — never leave a live/shared deployment set to
-`Xcode`,** since it means the backend trusts a client-submitted payload's claims without
-verifying any signature at all for that one case. Every time the shortcut fires, it logs a
-loud `console.warn` (visible in `b4a logs`) so an accidental production misconfiguration
-is at least noisy rather than silent.
 
 ### Specialty & case type catalog
 
@@ -214,9 +181,8 @@ node scripts/seed-case-types.js    # rebuilds CaseType rows (also re-runs the sp
 ## Setup
 
 1. `cp .env.example .env` and fill in your Back4App keys (App Settings → Security & Keys) and your `OPENAI_API_KEY`. `.env` is only used by the local test/scripts below — it is **not** read by deployed Cloud Code.
-2. In the Back4App dashboard, go to **Server Settings → Cloud Code → Environment Variables** (or **App Settings → Server Settings**, naming varies by plan) and set `OPENAI_API_KEY`, `OPENAI_MODEL`, `APPLE_BUNDLE_ID`, and `APPLE_APP_STORE_ENVIRONMENT` there. This is required for the deployed functions to work.
+2. In the Back4App dashboard, go to **Server Settings → Cloud Code → Environment Variables** (or **App Settings → Server Settings**, naming varies by plan) and set `OPENAI_API_KEY` and `OPENAI_MODEL` there. This is required for the deployed functions to work.
 3. Install the Back4App CLI if you don't have it: `npm install -g back4app-cli` (or use the dashboard's Cloud Code web editor / GitHub deploy instead — no CLI required either way).
-4. `npm install` — this project has one real dependency (`@apple/app-store-server-library`, for verifying Apple-signed subscription data). **It does not get deployed as an npm package** — testing confirmed Back4App's classic Cloud Code deploy unconditionally excludes any `node_modules` directory. It's required instead from a pre-built, dependency-free bundle already committed at `cloud/scrubPrep/vendor/appStoreServerLibrary.bundle.js`. You only need to regenerate it (`npm run build:vendor`) if you bump the library's version in `package.json`.
 
 ## Running tests
 
@@ -259,6 +225,5 @@ node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Lapar
 - `Specialty`/`CaseType` catalog rows must currently be seeded/edited via `scripts/seed-specialties.js` / `scripts/seed-case-types.js` or the dashboard's Database Browser — no admin UI or Cloud Function to write them yet (`listSpecialties`/`listCaseTypes` are read-only).
 - The ephemeral `PimpSession` class (in-progress Q&A scratchpad, see `startPimpSession`/`answerPimpQuestion`) still has no owning user and is read/written purely via the Master Key — unlike `ScrubCase`/`PimpMeSession`, it was left as-is since it holds nothing worth attributing to an account (it's discarded once a session completes and gets persisted as a `PimpMeSession`).
 - PHI detection (`schemas.containsLikelyPHI`) is intentionally minimal (a few obvious patterns) per the product spec — not a compliance-grade PHI scrubber.
-- Subscription verification relies only on Apple's public root certificate (no App Store Connect API key) and client-pushed transactions — there is deliberately no App Store Server Notifications V2 (webhook) support and no proactive on-demand status polling via the App Store Server API; see "Subscriptions & complimentary case" for why, and what a real ASC API key (`.p8` + Key ID + Issuer ID) would add later if tighter refund/revocation handling is ever needed.
+- Subscription state is trusted from the client's own StoreKit 2 on-device verification, not independently re-verified server-side — see "Subscriptions & complimentary case" for the reasoning and the accepted tradeoff (a jailbroken/tampered client could report a fake status; it cannot reset its own complimentary flag).
 - The complimentary-case flag isn't protected by a reservation/idempotency system — a genuinely concurrent double-tap can trigger an extra OpenAI call, though never a second saved complimentary case — see "Subscriptions & complimentary case" for the reasoning behind this deliberate simplification.
-- `@apple/app-store-server-library` is required from a hand-built bundle (`cloud/scrubPrep/vendor/appStoreServerLibrary.bundle.js`, via `npm run build:vendor`), not the npm package directly — Back4App's classic Cloud Code deploy unconditionally excludes any `node_modules` directory, confirmed by testing, at any depth. Regenerate and commit the bundle after bumping the library's version in `package.json`.

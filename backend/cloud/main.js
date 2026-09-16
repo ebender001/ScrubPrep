@@ -13,9 +13,8 @@ const cleanup = require("./scrubPrep/cleanup");
 const aiClient = require("./scrubPrep/aiClient");
 const aiUsage = require("./scrubPrep/aiUsage");
 const subscriptions = require("./scrubPrep/subscriptions");
-const appStoreVerifier = require("./scrubPrep/appStoreVerifier");
 
-subscriptions.registerBeforeSaveGuards();
+subscriptions.registerProtectedFieldsGuard();
 
 // Every AI-backed Cloud Function passes this as its `deps` so each underlying OpenAI call
 // (prep.js/pimp.js/rapidFire.js all already accept an injectable `generateJSON` for tests)
@@ -463,43 +462,55 @@ Parse.Cloud.define(
   "getAccessStatus",
   safeHandler(async (request) => {
     const user = requireUser(request);
-    return await subscriptions.getAccessStatus(user);
+    return subscriptions.getAccessStatus(user);
   })
 );
 
+const SUBSCRIPTION_STATUS_VALUES = ["none", "active", "grace_period", "billing_retry", "expired", "revoked"];
+
+function parseOptionalDate(value, fieldName) {
+  if (value === undefined || value === null || value === "") return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `${fieldName} must be a valid date.`);
+  }
+  return date;
+}
+
+// The client has already verified this transaction on-device via StoreKit 2's own
+// VerificationResult (real Apple cryptography) — see SubscriptionManager.swift. This
+// backend deliberately does not independently re-verify the signature; it trusts and
+// records what StoreKit already confirmed. See cloud/scrubPrep/subscriptions.js's file
+// comment for the reasoning and the accepted tradeoff.
 Parse.Cloud.define(
   "syncSubscriptionStatus",
   safeHandler(async (request) => {
     const user = requireUser(request);
-    const signedTransactionInfo = requireNonEmptyString(
-      request.params.signedTransactionInfo,
-      "signedTransactionInfo"
-    );
-    const signedRenewalInfo =
-      typeof request.params.signedRenewalInfo === "string" && request.params.signedRenewalInfo.trim()
-        ? request.params.signedRenewalInfo.trim()
-        : undefined;
-
-    let decodedTransaction;
-    try {
-      decodedTransaction = await appStoreVerifier.verifyTransaction(signedTransactionInfo);
-    } catch (err) {
-      throw new Parse.Error(Parse.Error.VALIDATION_ERROR, "That purchase couldn't be verified.");
+    const status = requireNonEmptyString(request.params.status, "status");
+    if (!SUBSCRIPTION_STATUS_VALUES.includes(status)) {
+      throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `status must be one of: ${SUBSCRIPTION_STATUS_VALUES.join(", ")}`);
     }
+    const productId =
+      typeof request.params.productId === "string" && request.params.productId.trim()
+        ? request.params.productId.trim()
+        : null;
 
-    let decodedRenewalInfo = null;
-    if (signedRenewalInfo) {
-      try {
-        decodedRenewalInfo = await appStoreVerifier.verifyRenewalInfo(signedRenewalInfo);
-      } catch (err) {
-        // Non-fatal — the transaction itself (expiry/revocation) is still authoritative
-        // and gets applied; renewal info only adds grace-period/auto-renew display detail.
-        decodedRenewalInfo = null;
-      }
-    }
-
-    await subscriptions.applyVerifiedTransaction({ owner: user, decodedTransaction, decodedRenewalInfo });
-    return await subscriptions.getAccessStatus(user, {});
+    await subscriptions.applyReportedSubscriptionStatus(user, {
+      status,
+      productId,
+      expiresAt: parseOptionalDate(request.params.expiresAt, "expiresAt"),
+      gracePeriodExpiresAt: parseOptionalDate(request.params.gracePeriodExpiresAt, "gracePeriodExpiresAt"),
+      autoRenewStatus: typeof request.params.autoRenewStatus === "boolean" ? request.params.autoRenewStatus : null,
+      autoRenewProductId:
+        typeof request.params.autoRenewProductId === "string" && request.params.autoRenewProductId.trim()
+          ? request.params.autoRenewProductId.trim()
+          : null,
+      originalTransactionId:
+        typeof request.params.originalTransactionId === "string" && request.params.originalTransactionId.trim()
+          ? request.params.originalTransactionId.trim()
+          : null,
+    });
+    return subscriptions.getAccessStatus(user);
   })
 );
 
