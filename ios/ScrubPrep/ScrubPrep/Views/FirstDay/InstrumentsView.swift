@@ -103,7 +103,11 @@ private let instrumentCategories: [InstrumentCategory] = [
         title: "Clamping & Hemostasis",
         systemImage: "bolt.heart",
         instruments: [
-            Instrument(name: "Kelly clamp", description: "General-purpose clamp for grasping tissue or vessels."),
+            Instrument(
+                name: "Kelly clamp",
+                description: "General-purpose clamp for grasping tissue or vessels.",
+                images: [InstrumentImage("kelly-clamp")]
+            ),
             Instrument(name: "Mosquito clamp", description: "Small clamp for fine hemostasis."),
             Instrument(name: "Right-angle clamp", description: "Used to dissect around and encircle structures."),
         ]
