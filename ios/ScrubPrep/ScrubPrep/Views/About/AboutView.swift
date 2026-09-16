@@ -1,6 +1,4 @@
-import StoreKit
 import SwiftUI
-import UIKit
 
 /// About screen (spec §1, §15) — informational, account sign-out, and subscription
 /// management.
@@ -99,10 +97,8 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
 
             if subscriptionManager.hasActiveSubscription {
-                Button("Manage Subscription") {
-                    Task { await showManageSubscriptions() }
-                }
-                .font(.subheadline.weight(.medium))
+                Link("Manage Subscription", destination: Self.manageSubscriptionsURL)
+                    .font(.subheadline.weight(.medium))
             } else {
                 Button("Subscribe") {
                     showPaywall = true
@@ -149,14 +145,13 @@ struct AboutView: View {
         }
     }
 
-    @MainActor
-    private func showManageSubscriptions() async {
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first(where: { $0.activationState == .foregroundActive })
-        else { return }
-        try? await AppStore.showManageSubscriptions(in: windowScene)
-    }
+    // Opens Apple's own hosted subscription-management page externally (App Store app,
+    // falling back to Safari) rather than using StoreKit 2's in-app
+    // `AppStore.showManageSubscriptions(in:)` sheet — that API has known real-world
+    // reports of occasionally presenting a blank sheet with a spinner that never loads
+    // (particularly right after a fresh purchase, or on certain iOS versions). This URL
+    // can't fail that way: it just hands off to a page Apple renders itself.
+    private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
 }
 
 #Preview {
