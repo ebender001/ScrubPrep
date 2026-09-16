@@ -19,6 +19,8 @@ cloud/
     cases.js                    a signed-in user's saved Cases (ScrubCase Parse class)
     pimpMeSessions.js            a signed-in user's completed Pimp Me sessions (PimpMeSession Parse class)
     cleanup.js                  cleanupOldPimpSessions job — deletes stale ephemeral PimpSession rows
+    aiCost.js                    USD-per-1M-token pricing table + estimateCostUSD(model, usage)
+    aiUsage.js                   recordUsage(...) — logs one AIUsageEvent row per OpenAI API call
 test/                          node:test unit tests (mock the AI client, no network/Parse needed)
 scripts/
   lib/parseRest.js               shared Parse REST API helper (used by the scripts below)
@@ -27,6 +29,8 @@ scripts/
   seed-specialties.js            idempotently seeds/updates the Specialty catalog via the Parse REST API
   seed-case-types.js            rebuilds the CaseType catalog (specialty as a Pointer) via the Parse REST API
   setup-user-data-schema.js      creates/updates the ScrubCase and PimpMeSession classes with no public CLP access
+  setup-ai-usage-schema.js      creates/updates the AIUsageEvent class with no public CLP access
+  report-ai-costs.js            prints an AI cost report (by Cloud Function, by model, projected monthly) from AIUsageEvent rows
 .parse.project                  Parse CLI project config (safe to commit — no secrets)
 .parse.local                    Parse CLI local config incl. Master Key — gitignored, never commit
 ```
@@ -69,6 +73,25 @@ node scripts/setup-user-data-schema.js
 ```
 
 Safe to re-run.
+
+### AI cost tracking
+
+Every actual OpenAI API call — from `generateScrubPrep`, `startPimpSession`, `answerPimpQuestion`, and `generateRapidFire` — is logged as its own row in an `AIUsageEvent` Parse class (`cloud/scrubPrep/aiUsage.js`, called from `cloud/main.js`'s `withUsageTracking` helper): `functionName`, `model`, `promptTokens`, `completionTokens`, `totalTokens`, `estimatedCostUSD`, and `owner` (Pointer<_User>, when the caller is signed in). Estimated cost comes from a hand-maintained USD-per-1M-token pricing table in `cloud/scrubPrep/aiCost.js` — **verify those numbers against <https://openai.com/api/pricing/> and update them if OpenAI has changed pricing** before trusting a report for a real financial decision (e.g. setting a subscription price). Logging a usage row can never fail or slow down the AI call it's measuring — errors are caught and logged, never thrown.
+
+Like `AIUsageEvent`'s Class-Level Permissions are locked to nobody — Master Key/Cloud Code only. Set it up once with:
+
+```
+node scripts/setup-ai-usage-schema.js
+```
+
+Then, any time you want to check actual spend or estimate a subscription price:
+
+```
+node scripts/report-ai-costs.js            # all-time
+node scripts/report-ai-costs.js --days 30  # last 30 days only
+```
+
+This prints total estimated cost, a breakdown by Cloud Function and by model, average cost per signed-in user, and a projected monthly cost extrapolated from the observed date range — a starting point for "what do we need to charge per subscriber to cover AI spend," not a substitute for also accounting for margin, non-AI costs, and inactive/free users.
 
 ### Specialty & case type catalog
 
