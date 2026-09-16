@@ -9,10 +9,15 @@ final class HomeViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
-    // Set when Pimp Me is started directly from Home (rather than from an already-open
-    // PrepView, which already has its prep and doesn't need this): the case is prepared
-    // first — reusing the same generate-or-reuse-cached-prep logic as Prepare Me — then
-    // this flag drives navigation straight into the interactive session instead of PrepView.
+    // The (trimmed) case description `generatedPrep` was actually prepared for — Home's
+    // Pimp Me/Rapid Fire buttons are only enabled once this matches the current
+    // `caseDescription` (see isCurrentCasePrepared), so those features are never
+    // reachable from Home until Prepare Me has been tapped for that exact case. Editing
+    // the text afterward re-locks them until Prepare Me is tapped again.
+    @Published private(set) var preparedCaseDescription: String?
+    // Set when Pimp Me is started directly from Home, using the prep already generated
+    // by Prepare Me (see isCurrentCasePrepared) — this flag drives navigation straight
+    // into the interactive session instead of PrepView.
     @Published var pimpMePrep: ORPrep?
     @Published var navigateToPimpMe = false
     // Same idea as pimpMePrep/navigateToPimpMe, for Rapid Fire started directly from Home.
@@ -90,6 +95,7 @@ final class HomeViewModel: ObservableObject {
         try? await historyStore.markReviewed(scrubCase)
         generatedPrep = scrubCase.prep
         caseDescription = scrubCase.caseDescription
+        preparedCaseDescription = scrubCase.caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         navigateToPrep = true
         await loadCases()
     }
@@ -98,6 +104,8 @@ final class HomeViewModel: ObservableObject {
     func startPimpMeFromRecentCase(_ scrubCase: ScrubCase) async {
         try? await historyStore.markReviewed(scrubCase)
         caseDescription = scrubCase.caseDescription
+        generatedPrep = scrubCase.prep
+        preparedCaseDescription = scrubCase.caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         pimpMePrep = scrubCase.prep
         navigateToPimpMe = true
         await loadCases()
@@ -107,9 +115,20 @@ final class HomeViewModel: ObservableObject {
     func startRapidFireFromRecentCase(_ scrubCase: ScrubCase) async {
         try? await historyStore.markReviewed(scrubCase)
         caseDescription = scrubCase.caseDescription
+        generatedPrep = scrubCase.prep
+        preparedCaseDescription = scrubCase.caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         rapidFirePrep = scrubCase.prep
         navigateToRapidFire = true
         await loadCases()
+    }
+
+    /// True once `generatedPrep` was actually prepared for the case description currently
+    /// in the text field — drives whether Home's Pimp Me/Rapid Fire buttons are enabled.
+    /// Editing the text after preparing flips this back to false until Prepare Me is
+    /// tapped again, so those buttons can never trigger AI generation on their own.
+    var isCurrentCasePrepared: Bool {
+        guard let preparedCaseDescription else { return false }
+        return preparedCaseDescription == caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Fetches the full case type catalog used to filter quick-picks once a specialty is
@@ -182,29 +201,28 @@ final class HomeViewModel: ObservableObject {
         }
     }
 
-    /// Pimp Me tapped directly from Home (rather than from PrepView, which already has a
-    /// prep): prepares the case exactly like Prepare Me, then heads into the interactive
-    /// session instead of PrepView.
+    /// Pimp Me tapped directly from Home — only reachable once `isCurrentCasePrepared` is
+    /// true (see HomeView's `.disabled`), so this always has an already-generated prep on
+    /// hand and never triggers its own AI call.
     func startPimpMe() {
-        resolvePrep { [weak self] prep in
-            self?.pimpMePrep = prep
-            self?.navigateToPimpMe = true
-        }
+        guard isCurrentCasePrepared, let prep = generatedPrep else { return }
+        pimpMePrep = prep
+        navigateToPimpMe = true
     }
 
-    /// Rapid Fire tapped directly from Home: prepares the case exactly like Prepare Me and
-    /// Pimp Me, then heads into the 5-question review instead of PrepView.
+    /// Rapid Fire tapped directly from Home — same precondition as `startPimpMe()`.
     func startRapidFire() {
-        resolvePrep { [weak self] prep in
-            self?.rapidFirePrep = prep
-            self?.navigateToRapidFire = true
-        }
+        guard isCurrentCasePrepared, let prep = generatedPrep else { return }
+        rapidFirePrep = prep
+        navigateToRapidFire = true
     }
 
     /// Resolves an `ORPrep` for the current `caseDescription` — reusing a cached one from
     /// history if this exact case was already prepared, otherwise generating a new one —
-    /// then hands it to `onReady`. Shared by `prepareCase()` and `startPimpMe()`, which
-    /// only differ in where they navigate once the prep is available.
+    /// then hands it to `onReady`. Only called from `prepareCase()`: Pimp Me/Rapid Fire
+    /// from Home reuse that result instead of resolving their own (see
+    /// `isCurrentCasePrepared`), so Prepare Me is the only thing on Home that can trigger
+    /// AI generation.
     private func resolvePrep(onReady: @escaping (ORPrep) -> Void) {
         let trimmed = caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -224,6 +242,7 @@ final class HomeViewModel: ObservableObject {
                     guard !Task.isCancelled, requestID == currentRequestID else { return }
                     try? await historyStore.markReviewed(existing)
                     isGenerating = false
+                    preparedCaseDescription = trimmed
                     onReady(existing.prep)
                     return
                 }
@@ -232,6 +251,7 @@ final class HomeViewModel: ObservableObject {
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 _ = try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
                 isGenerating = false
+                preparedCaseDescription = trimmed
                 onReady(prep)
             } catch {
                 guard !Task.isCancelled, requestID == currentRequestID else { return }

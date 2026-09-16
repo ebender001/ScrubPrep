@@ -42,8 +42,8 @@ struct HomeView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!hasCaseDescription)
-                        .opacity(hasCaseDescription ? 1 : 0.5)
+                        .disabled(!viewModel.isCurrentCasePrepared)
+                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         Button {
                             viewModel.startRapidFire()
@@ -57,8 +57,8 @@ struct HomeView: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!hasCaseDescription)
-                        .opacity(hasCaseDescription ? 1 : 0.5)
+                        .disabled(!viewModel.isCurrentCasePrepared)
+                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         NavigationLink(value: HomeRoute.firstDay) {
                             ActionCard(
@@ -120,10 +120,6 @@ struct HomeView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
-    }
-
-    private var hasCaseDescription: Bool {
-        !viewModel.caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var errorBinding: Binding<Bool> {
