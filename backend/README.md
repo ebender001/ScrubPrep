@@ -84,7 +84,7 @@ Like `AIUsageEvent`'s Class-Level Permissions are locked to nobody — Master Ke
 node scripts/setup-ai-usage-schema.js
 ```
 
-Then, any time you want to check actual spend or estimate a subscription price:
+Then, any time you want to check actual spend or estimate a subscription price, run this from the `backend/` folder (where this README lives — `scripts/` is relative to it):
 
 ```
 node scripts/report-ai-costs.js            # all-time
