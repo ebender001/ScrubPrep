@@ -6,6 +6,8 @@ struct AboutView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showPaywall = false
+    @State private var isRestoring = false
+    @State private var restoreResultMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -78,7 +80,19 @@ struct AboutView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
+            .alert("Restore Purchases", isPresented: restoreResultBinding) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(restoreResultMessage ?? "")
+            }
         }
+    }
+
+    private var restoreResultBinding: Binding<Bool> {
+        Binding(
+            get: { restoreResultMessage != nil },
+            set: { if !$0 { restoreResultMessage = nil } }
+        )
     }
 
     private var accountDescription: String {
@@ -106,10 +120,17 @@ struct AboutView: View {
                 .font(.subheadline.weight(.medium))
             }
 
-            Button("Restore Purchases") {
-                Task { try? await subscriptionManager.restore() }
+            Button {
+                restorePurchases()
+            } label: {
+                if isRestoring {
+                    ProgressView()
+                } else {
+                    Text("Restore Purchases")
+                }
             }
             .font(.subheadline.weight(.medium))
+            .disabled(isRestoring)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,6 +163,22 @@ struct AboutView: View {
             return "Your subscription was refunded."
         default:
             return "No active subscription."
+        }
+    }
+
+    private func restorePurchases() {
+        isRestoring = true
+        Task {
+            do {
+                try await subscriptionManager.restore()
+                isRestoring = false
+                restoreResultMessage = subscriptionManager.hasActiveSubscription
+                    ? "Your subscription has been restored."
+                    : "No active subscription was found for this Apple ID."
+            } catch {
+                isRestoring = false
+                restoreResultMessage = "Couldn't restore purchases. Check your connection and try again."
+            }
         }
     }
 
