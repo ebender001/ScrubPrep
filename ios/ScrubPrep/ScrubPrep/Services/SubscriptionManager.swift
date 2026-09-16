@@ -5,8 +5,14 @@ import StoreKit
 /// Owns everything StoreKit 2: loading the two subscription products, purchasing,
 /// restoring, and keeping a live transaction listener running for the app's lifetime.
 /// `accessStatus` (from the backend's `getAccessStatus`/`syncSubscriptionStatus`) is the
-/// single source of truth the rest of the app reads from — this class never decides
-/// access on its own, it only reports what StoreKit says and keeps the backend in sync.
+/// single source of truth the rest of the app reads from.
+///
+/// Trust model: this app trusts StoreKit 2's own on-device verification
+/// (`VerificationResult` — real Apple cryptography, just checked here rather than
+/// re-checked server-side) and reports the already-verified transaction's plain fields to
+/// the backend. See backend/cloud/scrubPrep/subscriptions.js's file comment for the full
+/// reasoning and the accepted tradeoff — this was a deliberate simplification over
+/// independently re-verifying Apple's signature server-side.
 @MainActor
 final class SubscriptionManager: ObservableObject {
     static let monthlyProductID = "dev.benderapps.ScrubPrep.subscription.monthly"
@@ -29,7 +35,6 @@ final class SubscriptionManager: ObservableObject {
 
     private let service: ScrubPrepServicing
     private var updatesTask: Task<Void, Never>?
-    private var cachedAppAccountToken: UUID?
 
     init(service: ScrubPrepServicing? = nil) {
         self.service = service ?? ScrubPrepServiceFactory.make()
@@ -61,11 +66,10 @@ final class SubscriptionManager: ObservableObject {
     }
 
     func purchase(_ product: Product) async throws -> PurchaseOutcome {
-        let token = try await resolvedAppAccountToken()
-        let result = try await product.purchase(options: [.appAccountToken(token)])
+        let result = try await product.purchase()
         switch result {
         case .success(let verification):
-            try await verifyAndSync(verification, productID: product.id)
+            try await reportAndFinish(verification, productID: product.id)
             await refreshAccessStatus()
             return .success
         case .userCancelled:
@@ -81,20 +85,9 @@ final class SubscriptionManager: ObservableObject {
     func restore() async throws {
         try await AppStore.sync()
         for await result in Transaction.currentEntitlements {
-            try? await verifyAndSync(result, productID: nil)
+            try? await reportAndFinish(result, productID: nil)
         }
         await refreshAccessStatus()
-    }
-
-    private func resolvedAppAccountToken() async throws -> UUID {
-        if let cachedAppAccountToken { return cachedAppAccountToken }
-        let status = try await service.getAccessStatus()
-        accessStatus = status
-        guard let token = UUID(uuidString: status.appAccountToken) else {
-            throw ScrubPrepError.invalidResponse
-        }
-        cachedAppAccountToken = token
-        return token
     }
 
     /// Kept alive for the process lifetime (this manager is injected once, at app launch,
@@ -104,34 +97,71 @@ final class SubscriptionManager: ObservableObject {
     private func startTransactionListener() {
         updatesTask = Task {
             for await result in Transaction.updates {
-                try? await verifyAndSync(result, productID: nil)
+                try? await reportAndFinish(result, productID: nil)
                 await refreshAccessStatus()
             }
         }
     }
 
-    /// Verifies the transaction's signature locally (StoreKit 2's own check), submits its
-    /// raw signed JWS to the backend for server-side verification, and only finishes the
-    /// transaction once that backend call succeeds — so a dropped network call doesn't
-    /// silently lose a transaction StoreKit thinks is already handled.
-    private func verifyAndSync(_ result: VerificationResult<Transaction>, productID: String?) async throws {
-        let signedTransactionInfo = result.jwsRepresentation
+    /// Verifies the transaction on-device (StoreKit 2's own check — real Apple
+    /// cryptography), reports its plain fields to the backend, and only finishes the
+    /// transaction once that call succeeds — so a dropped network call doesn't silently
+    /// lose a transaction StoreKit thinks is already handled.
+    private func reportAndFinish(_ result: VerificationResult<Transaction>, productID: String?) async throws {
         let transaction = try checkVerified(result)
-        _ = try await service.syncSubscriptionStatus(
-            signedTransactionInfo: signedTransactionInfo,
-            signedRenewalInfo: await renewalInfoJWS(forProductID: productID ?? transaction.productID)
+        let resolvedProductID = productID ?? transaction.productID
+        let renewal = await currentRenewalDetails(forProductID: resolvedProductID)
+        let isRevoked = transaction.revocationDate != nil
+
+        let report = ReportedSubscriptionStatus(
+            status: statusString(renewalState: renewal?.state, isRevoked: isRevoked),
+            productId: resolvedProductID,
+            expiresAt: transaction.expirationDate,
+            gracePeriodExpiresAt: renewal?.gracePeriodExpiresAt,
+            autoRenewStatus: renewal?.autoRenewStatus,
+            autoRenewProductId: renewal?.autoRenewProductId,
+            originalTransactionId: String(transaction.originalID)
         )
+        _ = try await service.syncSubscriptionStatus(report)
         await transaction.finish()
     }
 
-    /// Best-effort only — grace-period/auto-renew display detail, not core access
-    /// enforcement (which only needs the transaction's own expiry/revocation fields).
-    private func renewalInfoJWS(forProductID productID: String) async -> String? {
+    private struct RenewalDetails {
+        let state: Product.SubscriptionInfo.RenewalState
+        let autoRenewStatus: Bool
+        let autoRenewProductId: String?
+        let gracePeriodExpiresAt: Date?
+    }
+
+    /// Best-effort only — grace-period/auto-renew display detail. Core access
+    /// (active/expired) doesn't depend on this succeeding, since `transaction.expirationDate`
+    /// and `revocationDate` are always available directly on the transaction itself.
+    private func currentRenewalDetails(forProductID productID: String) async -> RenewalDetails? {
         guard let product = products.first(where: { $0.id == productID }),
               let statuses = try? await product.subscription?.status,
-              let status = statuses.first
+              let status = statuses.first,
+              case .verified(let renewalInfo) = status.renewalInfo
         else { return nil }
-        return status.renewalInfo.jwsRepresentation
+        return RenewalDetails(
+            state: status.state,
+            autoRenewStatus: renewalInfo.willAutoRenew,
+            autoRenewProductId: renewalInfo.autoRenewPreference,
+            gracePeriodExpiresAt: renewalInfo.gracePeriodExpirationDate
+        )
+    }
+
+    // Revocation always wins regardless of what StoreKit's renewal state otherwise says.
+    private func statusString(renewalState: Product.SubscriptionInfo.RenewalState?, isRevoked: Bool) -> String {
+        if isRevoked { return "revoked" }
+        switch renewalState {
+        case .subscribed: return "active"
+        case .inGracePeriod: return "grace_period"
+        case .inBillingRetryPeriod: return "billing_retry"
+        case .expired: return "expired"
+        case .revoked: return "revoked"
+        case .none: return "none"
+        @unknown default: return "none"
+        }
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {

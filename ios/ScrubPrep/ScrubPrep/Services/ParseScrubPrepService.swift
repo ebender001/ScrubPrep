@@ -125,8 +125,13 @@ nonisolated private struct GetAccessStatusRequest: ParseCloudable {
 nonisolated private struct SyncSubscriptionStatusRequest: ParseCloudable {
     typealias ReturnType = AccessStatus
     var functionJobName = "syncSubscriptionStatus"
-    let signedTransactionInfo: String
-    let signedRenewalInfo: String?
+    let status: String
+    let productId: String?
+    let expiresAt: String?
+    let gracePeriodExpiresAt: String?
+    let autoRenewStatus: Bool?
+    let autoRenewProductId: String?
+    let originalTransactionId: String?
 }
 
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
@@ -202,11 +207,16 @@ struct ParseScrubPrepService: ScrubPrepServicing {
         try await run { try await GetAccessStatusRequest().runFunction() }
     }
 
-    func syncSubscriptionStatus(signedTransactionInfo: String, signedRenewalInfo: String?) async throws -> AccessStatus {
+    func syncSubscriptionStatus(_ report: ReportedSubscriptionStatus) async throws -> AccessStatus {
         try await run {
             try await SyncSubscriptionStatusRequest(
-                signedTransactionInfo: signedTransactionInfo,
-                signedRenewalInfo: signedRenewalInfo
+                status: report.status,
+                productId: report.productId,
+                expiresAt: report.expiresAt,
+                gracePeriodExpiresAt: report.gracePeriodExpiresAt,
+                autoRenewStatus: report.autoRenewStatus,
+                autoRenewProductId: report.autoRenewProductId,
+                originalTransactionId: report.originalTransactionId
             ).runFunction()
         }
     }

@@ -315,22 +315,20 @@ final class MockScrubPrepService: ScrubPrepServicing {
 
     private var mockHasUsedComplimentaryCase = false
     private var mockIsSubscribed = false
-    private let mockAppAccountToken = UUID().uuidString
 
     func getAccessStatus() async throws -> AccessStatus {
         try await Task.sleep(nanoseconds: 150_000_000)
         return currentMockAccessStatus()
     }
 
-    func syncSubscriptionStatus(signedTransactionInfo: String, signedRenewalInfo: String?) async throws -> AccessStatus {
+    func syncSubscriptionStatus(_ report: ReportedSubscriptionStatus) async throws -> AccessStatus {
         try await Task.sleep(nanoseconds: 150_000_000)
-        mockIsSubscribed = true
+        mockIsSubscribed = report.status == "active" || report.status == "grace_period"
         return currentMockAccessStatus()
     }
 
     private func currentMockAccessStatus() -> AccessStatus {
         AccessStatus(
-            appAccountToken: mockAppAccountToken,
             canGenerateNewCase: mockIsSubscribed || !mockHasUsedComplimentaryCase,
             hasUsedComplimentaryCase: mockHasUsedComplimentaryCase,
             subscription: mockIsSubscribed

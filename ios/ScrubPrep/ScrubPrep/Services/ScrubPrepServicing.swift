@@ -27,7 +27,7 @@ protocol ScrubPrepServicing {
     // Subscription/paywall — see backend/cloud/scrubPrep/subscriptions.js. The backend is
     // the only source of truth for both; these just read/report it, never decide it.
     func getAccessStatus() async throws -> AccessStatus
-    func syncSubscriptionStatus(signedTransactionInfo: String, signedRenewalInfo: String?) async throws -> AccessStatus
+    func syncSubscriptionStatus(_ report: ReportedSubscriptionStatus) async throws -> AccessStatus
 }
 
 /// Errors surfaced to the UI. Kept generic and friendly per spec §20 — never show raw

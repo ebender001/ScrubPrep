@@ -62,7 +62,6 @@ nonisolated struct AccessStatus: Codable, Equatable {
         )
     }
 
-    let appAccountToken: String
     let canGenerateNewCase: Bool
     let hasUsedComplimentaryCase: Bool
     let subscription: Subscription
