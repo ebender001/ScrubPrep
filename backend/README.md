@@ -181,6 +181,23 @@ Set up the schema once (safe to re-run):
 node scripts/setup-subscription-schema.js
 ```
 
+#### Testing purchases locally with Xcode's StoreKit Configuration file
+
+Transactions from Xcode's local `.storekit` config (no real Apple ID involved) are signed
+with a synthetic local key that **cannot** pass real cryptographic verification — that's
+inherent to how local StoreKit testing works, not a bug. To still exercise the full
+purchase → paywall-dismisses loop locally, set the *deployed* backend's
+`APPLE_APP_STORE_ENVIRONMENT` dashboard env var to `Xcode`: `appStoreVerifier.js` then
+skips signature verification for transactions whose own decoded payload also claims
+`environment: "Xcode"` (see its file comment for the full reasoning and the safeguards).
+
+**This must be switched back to `Sandbox` before testing with a real sandbox tester Apple
+ID, and to `Production` before shipping — never leave a live/shared deployment set to
+`Xcode`,** since it means the backend trusts a client-submitted payload's claims without
+verifying any signature at all for that one case. Every time the shortcut fires, it logs a
+loud `console.warn` (visible in `b4a logs`) so an accidental production misconfiguration
+is at least noisy rather than silent.
+
 ### Specialty & case type catalog
 
 Specialties (e.g. "General Surgery", "Cardiac Surgery", "ENT") live in a `Specialty` Parse class: `name` (String, human-readable), `sortOrder` (Number), and `exampleCaseDescription` (String — the example shown in the iOS case-entry field once that specialty is selected, e.g. "Lap chole for acute cholecystitis" for General Surgery; the client falls back to a generic example if this is missing). Case types (e.g. "Lap Chole", "CABG", "Tonsillectomy") live in a `CaseType` Parse class with a **Pointer** to a `Specialty` row (not a raw string), plus `name` (String — the short/colloquial label shown on the compact quick-pick chip), `fullName` (String — the proper clinical name inserted into the case description field when that chip is tapped, e.g. "Laparoscopic Cholecystectomy" for "Lap Chole"; identical to `name` when there's no common abbreviation), `sortOrder` (Number, order within that specialty), and `featured` (Boolean, whether it should appear as a Home-screen quick-pick). Neither class is hardcoded in the client, so the catalog can grow without an app release.
