@@ -409,9 +409,8 @@ test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish i
       return true;
     }
   );
-  // The failed attempt above should have released its reservation — a fresh attempt for
-  // the same user must still be treated as their (still-unused) complimentary case, not
-  // rejected as already-consumed.
+  // A failed generation never touches the complimentary flag (it's only ever set in
+  // saveCase, which was never reached here) — eligibility must be untouched.
   const status = await registry.getAccessStatus({ params: {}, user: owner });
   assert.equal(status.canGenerateNewCase, true);
   assert.equal(status.hasUsedComplimentaryCase, false);
@@ -431,18 +430,17 @@ test("generateScrubPrep: a new user's first case is complimentary; a second atte
     must_know: ["1", "2", "3", "4", "5"],
     likely_questions: [{ question: "q", answer: "a" }],
   });
-  const idempotencyKey = "idem-1";
   const prep1 = await registry.generateScrubPrep({
-    params: { caseDescription: "Appendectomy", idempotencyKey },
+    params: { caseDescription: "Appendectomy" },
     user: owner,
   });
   assert.equal(prep1.title, "Appendectomy");
 
   const beforeSave = await registry.getAccessStatus({ params: {}, user: owner });
-  assert.equal(beforeSave.canGenerateNewCase, true, "not yet consumed until saveCase succeeds");
+  assert.equal(beforeSave.canGenerateNewCase, true, "not marked used until saveCase succeeds");
 
   await registry.saveCase({
-    params: { caseDescription: "Appendectomy", prep: prep1, idempotencyKey },
+    params: { caseDescription: "Appendectomy", prep: prep1 },
     user: owner,
   });
 
@@ -459,9 +457,8 @@ test("generateScrubPrep: a new user's first case is complimentary; a second atte
   );
 });
 
-test("generateScrubPrep: a retry with the same idempotency key reuses the same reservation instead of granting a second complimentary case", async () => {
-  const owner = { id: "retry_user" };
-  const idempotencyKey = "idem-retry";
+test("generateScrubPrep: saveCase marking the flag used is idempotent across repeated calls", async () => {
+  const owner = { id: "idempotent_save_user" };
   responseQueue.push({
     recognized: true,
     title: "First",
@@ -474,66 +471,13 @@ test("generateScrubPrep: a retry with the same idempotency key reuses the same r
     must_know: ["1", "2", "3", "4", "5"],
     likely_questions: [{ question: "q", answer: "a" }],
   });
-  await registry.generateScrubPrep({ params: { caseDescription: "First", idempotencyKey }, user: owner });
-
-  // Simulate a network-interrupted retry of the exact same attempt (same key) before the
-  // case was ever saved — must be allowed to proceed again, not treated as a new/second
-  // complimentary case.
-  responseQueue.push({
-    recognized: true,
-    title: "First",
-    case_summary: "s",
-    why_operating: ["x"],
-    anatomy: ["x"],
-    operation_overview: ["x"],
-    things_to_watch: ["x"],
-    complications: ["x"],
-    must_know: ["1", "2", "3", "4", "5"],
-    likely_questions: [{ question: "q", answer: "a" }],
-  });
-  const retried = await registry.generateScrubPrep({
-    params: { caseDescription: "First", idempotencyKey },
-    user: owner,
-  });
-  assert.equal(retried.title, "First");
-
-  await registry.saveCase({ params: { caseDescription: "First", prep: retried, idempotencyKey }, user: owner });
+  const prep1 = await registry.generateScrubPrep({ params: { caseDescription: "First" }, user: owner });
+  await registry.saveCase({ params: { caseDescription: "First", prep: prep1 }, user: owner });
+  // Saving again (e.g. a client retry, or reviewing/re-saving the same case later) must
+  // not error or otherwise misbehave just because the flag is already set.
+  await registry.saveCase({ params: { caseDescription: "First", prep: prep1 }, user: owner });
   const status = await registry.getAccessStatus({ params: {}, user: owner });
   assert.equal(status.hasUsedComplimentaryCase, true);
-});
-
-test("generateScrubPrep: a concurrent second attempt with a different idempotency key is rejected while the first is in flight", async () => {
-  const owner = { id: "concurrent_user" };
-  responseQueue.push({
-    recognized: true,
-    title: "First",
-    case_summary: "s",
-    why_operating: ["x"],
-    anatomy: ["x"],
-    operation_overview: ["x"],
-    things_to_watch: ["x"],
-    complications: ["x"],
-    must_know: ["1", "2", "3", "4", "5"],
-    likely_questions: [{ question: "q", answer: "a" }],
-  });
-  // First call reserves but never saves (simulating still-in-flight from the client's
-  // perspective) — a second, distinct tap must be rejected, not silently allowed to
-  // reserve a duplicate slot.
-  await registry.generateScrubPrep({
-    params: { caseDescription: "First", idempotencyKey: "key-A" },
-    user: owner,
-  });
-  await assert.rejects(
-    () =>
-      registry.generateScrubPrep({
-        params: { caseDescription: "First", idempotencyKey: "key-B" },
-        user: owner,
-      }),
-    (err) => {
-      assert.equal(err.code, 119); // OPERATION_FORBIDDEN — not the paywall code
-      return true;
-    }
-  );
 });
 
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {

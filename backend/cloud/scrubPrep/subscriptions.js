@@ -5,29 +5,33 @@
 // case (complimentary or not) keeps its Pimp Me/Rapid Fire access forever, even after a
 // subscription lapses — that requirement falls out of the existing architecture for free.
 //
-// Two Parse classes back this (see scripts/setup-subscription-schema.js for CLPs):
-//   UserEntitlement          — one row per user; the verified subscription state.
-//   ComplimentaryReservation — at most one row per user; enforces "exactly one free case."
-// Both classes have a beforeSave guard (registerBeforeSaveGuards, called once from
-// main.js) that rejects a second CREATE for an owner that already has a row — an
+// One Parse class backs this (see scripts/setup-subscription-schema.js for CLPs):
+// `UserEntitlement`, one row per user, holding both the verified subscription state and
+// a plain `hasUsedComplimentaryCase` boolean. It's Master-Key-only (no client access at
+// all), which is why the flag lives here rather than as a field on `_User` — this app's
+// `_User` CLP intentionally allows authenticated self-update (required for signup/login),
+// so a client-writable boolean there could be reset via the SDK directly.
+//
+// The flag is deliberately NOT protected by a reservation/idempotency-key system: a
+// genuinely concurrent double-tap can, at worst, trigger two OpenAI calls before
+// `saveCase` sets the flag — but it can never result in more than one saved complimentary
+// case, since the flag only ever transitions false -> true and is only ever set (never
+// read-and-incremented) after a case is durably saved. That's judged the right amount of
+// protection for a low-price subscription product; a stricter (and more complex)
+// reservation-based design was considered and intentionally dropped in favor of this.
+//
+// A beforeSave guard (registerBeforeSaveGuards, called once from main.js) rejects a
+// second CREATE of UserEntitlement for an owner that already has one — an
 // application-level uniqueness guard, not a database-enforced one (Parse Server's public
 // schema API doesn't reliably expose a way to declare a true unique index from Cloud
-// Code). This closes the race for all but two requests landing within the same few
-// milliseconds; consumeReservation() below has a second, final check as defense in depth.
-
-const STALE_RESERVATION_MS = 2 * 60 * 1000; // generous for a full OpenAI round trip
+// Code). This only matters for the vanishingly rare case of two concurrent *first-ever*
+// calls for the same brand-new user; getOrCreateUserEntitlement already handles losing
+// that race gracefully.
 
 class SubscriptionRequiredError extends Error {
   constructor(message) {
     super(message || "A subscription is required to prepare another case.");
     this.name = "SubscriptionRequiredError";
-  }
-}
-
-class ReservationInProgressError extends Error {
-  constructor(message) {
-    super(message || "Your complimentary case is still being prepared. Please wait a moment and try again.");
-    this.name = "ReservationInProgressError";
   }
 }
 
@@ -41,19 +45,7 @@ function registerBeforeSaveGuards() {
       throw new Parse.Error(Parse.Error.DUPLICATE_VALUE, "A UserEntitlement row already exists for this user.");
     }
   });
-
-  Parse.Cloud.beforeSave("ComplimentaryReservation", async (request) => {
-    if (request.object.existed()) return;
-    const query = new Parse.Query("ComplimentaryReservation");
-    query.equalTo("owner", request.object.get("owner"));
-    const existing = await query.first({ useMasterKey: true });
-    if (existing) {
-      throw new Parse.Error(Parse.Error.DUPLICATE_VALUE, "A complimentary reservation already exists for this user.");
-    }
-  });
 }
-
-// MARK: - UserEntitlement
 
 async function fetchUserEntitlement(owner) {
   const query = new Parse.Query("UserEntitlement");
@@ -73,6 +65,7 @@ async function getOrCreateUserEntitlement(owner, deps = {}) {
   entitlement.set("owner", owner);
   entitlement.set("appAccountToken", require("crypto").randomUUID());
   entitlement.set("subscriptionStatus", "none");
+  entitlement.set("hasUsedComplimentaryCase", false);
   entitlement.set("createdAtVerified", now());
   try {
     await entitlement.save(null, { useMasterKey: true });
@@ -159,25 +152,18 @@ function toIso(date) {
 
 /**
  * @param {Parse.User} owner
- * @param {{ pendingIdempotencyKey?: string }} [options]
  * @param {object} [deps]
  */
-async function getAccessStatus(owner, { pendingIdempotencyKey } = {}, deps = {}) {
+async function getAccessStatus(owner, deps = {}) {
   const entitlement = await getOrCreateUserEntitlement(owner, deps);
-
-  let pendingReservationResolved = false;
-  if (pendingIdempotencyKey) {
-    pendingReservationResolved = await reconcileStaleReservation(owner, pendingIdempotencyKey, deps);
-  }
-
-  const hasConsumedComplimentary = await hasConsumedComplimentaryCase(owner, deps);
+  const hasUsedComplimentaryCase = !!entitlement.get("hasUsedComplimentaryCase");
   const active = isEntitlementActive(entitlement);
   const statusLabel = entitlement.get("subscriptionStatus") || "none";
 
   return {
     appAccountToken: entitlement.get("appAccountToken"),
-    canGenerateNewCase: active || !hasConsumedComplimentary,
-    hasUsedComplimentaryCase: hasConsumedComplimentary,
+    canGenerateNewCase: active || !hasUsedComplimentaryCase,
+    hasUsedComplimentaryCase,
     subscription: {
       isActive: active,
       status: statusLabel,
@@ -191,148 +177,48 @@ async function getAccessStatus(owner, { pendingIdempotencyKey } = {}, deps = {})
       autoRenewStatus: entitlement.get("subscriptionAutoRenewStatus") ?? null,
       autoRenewProductId: entitlement.get("subscriptionAutoRenewProductId") || null,
     },
-    pendingReservationResolved,
   };
 }
 
-// MARK: - ComplimentaryReservation
-
-async function fetchReservation(owner) {
-  const query = new Parse.Query("ComplimentaryReservation");
-  query.equalTo("owner", owner);
-  return query.first({ useMasterKey: true });
-}
-
-async function hasConsumedComplimentaryCase(owner, deps = {}) {
-  const fetch = deps.fetchReservation || fetchReservation;
-  const existing = await fetch(owner);
-  return !!existing && existing.get("status") === "consumed";
-}
-
-function isStale(reservation, now) {
-  const reservedAt = reservation.get("reservedAt");
-  if (!reservedAt) return true;
-  return now.getTime() - reservedAt.getTime() > STALE_RESERVATION_MS;
-}
-
-async function createReservation(owner, requestToken, now) {
-  const ReservationClass = Parse.Object.extend("ComplimentaryReservation");
-  const reservation = new ReservationClass();
-  reservation.set("owner", owner);
-  reservation.set("status", "reserved");
-  reservation.set("requestToken", requestToken);
-  reservation.set("reservedAt", now);
-  try {
-    await reservation.save(null, { useMasterKey: true });
-    return reservation;
-  } catch (err) {
-    if (err.code !== Parse.Error.DUPLICATE_VALUE) throw err;
-    return null; // lost the race — caller re-fetches the winner
-  }
-}
-
 /**
- * The core access decision for generateScrubPrep. Returns `{ mode: "subscribed" }` or
- * `{ mode: "complimentary", reservation }`; throws SubscriptionRequiredError (paywall) or
- * ReservationInProgressError (a genuinely concurrent duplicate request).
+ * The access decision for generateScrubPrep. Returns normally (nothing to check-in) when
+ * the caller may generate; throws SubscriptionRequiredError (the client shows the
+ * paywall) otherwise.
  *
  * @param {Parse.User} owner
- * @param {string} idempotencyKey
- * @param {{ fetchUserEntitlement?, fetchReservation?, now?: () => Date }} [deps]
+ * @param {{ fetchUserEntitlement?, now?: () => Date }} [deps]
  */
-async function checkAccessAndReserve(owner, idempotencyKey, deps = {}) {
-  const now = (deps.now || (() => new Date()))();
+async function checkAccess(owner, deps = {}) {
   const entitlement = await getOrCreateUserEntitlement(owner, deps);
-  if (isEntitlementActive(entitlement)) {
-    return { mode: "subscribed" };
-  }
-
-  const fetch = deps.fetchReservation || fetchReservation;
-  let existing = await fetch(owner);
-
-  if (!existing) {
-    const created = await createReservation(owner, idempotencyKey, now);
-    if (created) {
-      return { mode: "complimentary", reservation: created };
-    }
-    existing = await fetch(owner);
-    if (!existing) {
-      // Shouldn't happen (the create that beat us must have landed), but fail closed.
-      throw new ReservationInProgressError();
-    }
-  }
-
-  if (existing.get("status") === "consumed") {
+  if (isEntitlementActive(entitlement)) return;
+  if (entitlement.get("hasUsedComplimentaryCase")) {
     throw new SubscriptionRequiredError();
   }
-  if (existing.get("requestToken") === idempotencyKey) {
-    return { mode: "complimentary", reservation: existing };
-  }
-  if (isStale(existing, now)) {
-    existing.set("requestToken", idempotencyKey);
-    existing.set("reservedAt", now);
-    await existing.save(null, { useMasterKey: true });
-    return { mode: "complimentary", reservation: existing };
-  }
-  throw new ReservationInProgressError();
 }
 
 /**
- * Marks a reservation consumed after its case has been successfully saved. Re-checks for
- * a concurrently-consumed sibling row (see the module doc comment's "defense in depth")
- * before writing — the exceedingly rare loser just gets cleaned up instead of double-
- * marking, and the case it produced is still kept rather than discarded.
+ * Called from saveCase after a case has been durably saved — marks the complimentary
+ * case used (idempotent: a no-op if already true). This is the ONLY place the flag is
+ * ever set, and it's unconditional (not gated on current subscription status): "the
+ * first case ever" is what's complimentary, whether or not the user happened to already
+ * be subscribed when they generated it.
  */
-async function consumeReservation(reservation, caseId) {
-  const query = new Parse.Query("ComplimentaryReservation");
-  query.equalTo("owner", reservation.get("owner"));
-  query.equalTo("status", "consumed");
-  const alreadyConsumed = await query.first({ useMasterKey: true });
-  if (alreadyConsumed && alreadyConsumed.id !== reservation.id) {
-    await reservation.destroy({ useMasterKey: true });
-    return;
-  }
-  reservation.set("status", "consumed");
-  reservation.set("caseId", caseId);
-  await reservation.save(null, { useMasterKey: true });
-}
-
-/** A failed generation must never consume eligibility — delete the reservation outright. */
-async function releaseReservation(reservation) {
-  await reservation.destroy({ useMasterKey: true });
-}
-
-/**
- * Called from getAccessStatus when the client passes the idempotency key of a request it
- * couldn't confirm the outcome of. Releases a matching reservation if it's stale
- * (abandoned) so a genuine retry isn't blocked as "already in progress" forever.
- */
-async function reconcileStaleReservation(owner, pendingIdempotencyKey, deps = {}) {
-  const fetch = deps.fetchReservation || fetchReservation;
-  const now = (deps.now || (() => new Date()))();
-  const existing = await fetch(owner);
-  if (!existing) return false;
-  if (existing.get("requestToken") !== pendingIdempotencyKey) return false;
-  if (existing.get("status") === "consumed") return false;
-  if (!isStale(existing, now)) return false;
-  await releaseReservation(existing);
-  return true;
+async function markComplimentaryCaseUsed(owner, deps = {}) {
+  const entitlement = await getOrCreateUserEntitlement(owner, deps);
+  if (entitlement.get("hasUsedComplimentaryCase")) return;
+  entitlement.set("hasUsedComplimentaryCase", true);
+  await entitlement.save(null, { useMasterKey: true });
 }
 
 module.exports = {
   SubscriptionRequiredError,
-  ReservationInProgressError,
   registerBeforeSaveGuards,
   getOrCreateUserEntitlement,
   isEntitlementActive,
   deriveSubscriptionStatus,
   applyVerifiedTransaction,
   getAccessStatus,
-  checkAccessAndReserve,
-  consumeReservation,
-  releaseReservation,
-  reconcileStaleReservation,
+  checkAccess,
+  markComplimentaryCaseUsed,
   fetchUserEntitlement,
-  fetchReservation,
-  STALE_RESERVATION_MS,
 };

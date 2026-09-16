@@ -34,7 +34,7 @@ scripts/
   setup-user-data-schema.js      creates/updates the ScrubCase and PimpMeSession classes with no public CLP access
   setup-ai-usage-schema.js      creates/updates the AIUsageEvent class with no public CLP access
   report-ai-costs.js            prints an AI cost report (by Cloud Function, by model, projected monthly) from AIUsageEvent rows
-  setup-subscription-schema.js  creates/updates UserEntitlement and ComplimentaryReservation with no public CLP access
+  setup-subscription-schema.js  creates/updates UserEntitlement with no public CLP access
   build-app-store-vendor-bundle.js  bundles @apple/app-store-server-library into a single dependency-free file (see below)
 cloud/certs/AppleRootCA-G3.cer   Apple's official root certificate — required by appStoreVerifier.js, safe to commit (it's public). Lives under cloud/ (not the project root) because that's the only folder `b4a deploy` ships.
 .parse.project                  Parse CLI project config (safe to commit — no secrets)
@@ -45,14 +45,14 @@ cloud/certs/AppleRootCA-G3.cer   Apple's official root certificate — required 
 
 | Function | Params | Returns |
 |---|---|---|
-| `generateScrubPrep` | `{ caseDescription, idempotencyKey }` (requires sign-in) | OR Prep JSON (title, case_summary, why_operating, anatomy, operation_overview, things_to_watch, complications, must_know, likely_questions[]), or a Parse.Error (code 4001, a witty message) if the description isn't recognized as a real procedure, or code 4002 ("subscription required") if the caller has neither an active subscription nor an unused complimentary case — see "Subscriptions & complimentary case" below |
+| `generateScrubPrep` | `{ caseDescription }` (requires sign-in) | OR Prep JSON (title, case_summary, why_operating, anatomy, operation_overview, things_to_watch, complications, must_know, likely_questions[]), or a Parse.Error (code 4001, a witty message) if the description isn't recognized as a real procedure, or code 4002 ("subscription required") if the caller has neither an active subscription nor an unused complimentary case — see "Subscriptions & complimentary case" below |
 | `startPimpSession` | `{ caseDescription, prep, difficulty }` | `{ sessionId, question, progress, done }` |
 | `answerPimpQuestion` | `{ sessionId, answer }` | `{ assessment, feedback, teachingPoint, nextQuestion, done, progress }`, or on the last question `{ ..., done: true, summary: { strong, review, twoMinuteReview } }` |
 | `generateRapidFire` | `{ caseDescription, prep }` | `{ questions: [{ question, answer }] }` (exactly 5) |
 | `listCaseTypes` | none | `{ caseTypes: [{ name, fullName, specialty: { id, name } \| null, featured }] }`, sorted by specialty's sortOrder then the case type's own sortOrder/name |
 | `listSpecialties` | none | `{ specialties: [{ id, name, exampleCaseDescription }] }`, sorted by sortOrder/name |
 | `listCases` | none (requires sign-in) | `{ cases: [{ id, caseDescription, prep, createdAt, updatedAt, lastReviewedAt }] }`, sorted by `updatedAt` desc |
-| `saveCase` | `{ caseDescription, prep, idempotencyKey }` (requires sign-in) | `{ case: {...} }` — inserts, or updates in place if this (normalized) case was already saved. Consumes the complimentary allowance (if `idempotencyKey` matches a pending reservation from `generateScrubPrep`) — see "Subscriptions" below |
+| `saveCase` | `{ caseDescription, prep }` (requires sign-in) | `{ case: {...} }` — inserts, or updates in place if this (normalized) case was already saved. Marks the complimentary case used (if not already) — see "Subscriptions & complimentary case" below |
 | `markCaseReviewed` | `{ caseId }` (requires sign-in) | `{ success: true }` |
 | `deleteCase` | `{ caseId }` (requires sign-in) | `{ success: true }` — also deletes any completed Pimp Me sessions for that case |
 | `listPimpMeSessions` | `{ caseDescription }` (requires sign-in) | `{ sessions: [{ id, caseDescription, difficulty, transcript, summary, completedAt }] }`, every difficulty completed for that case |
@@ -109,40 +109,36 @@ products, same access level, different billing durations — see the iOS README/
 docs for the exact App Store Connect product IDs). This is enforced entirely server-side
 in `generateScrubPrep` — the client's own UI state is only a convenience, never trusted.
 
-Two Parse classes back this (`cloud/scrubPrep/subscriptions.js`), each with every CLP
-locked to nobody (Master Key/Cloud Code only — same lockdown as `ScrubCase`/`PimpMeSession`):
+One Parse class backs this (`cloud/scrubPrep/subscriptions.js`), with every CLP locked to
+nobody (Master Key/Cloud Code only — same lockdown as `ScrubCase`/`PimpMeSession`):
 
-- **`UserEntitlement`** — one row per user; the verified subscription state
+- **`UserEntitlement`** — one row per user: the verified subscription state
   (`subscriptionStatus: none|active|grace_period|billing_retry|expired|revoked`,
-  `subscriptionExpiresAt`, etc.) plus `appAccountToken` (a UUID, generated the first time
-  it's needed — required because StoreKit 2's `appAccountToken` purchase option needs a
-  real UUID, and Parse's `_User.objectId` isn't one). **Access is always exactly**
-  `subscriptionStatus === "active" || subscriptionStatus === "grace_period"` — every field
-  on this row comes straight from an Apple-signed transaction/renewal info via
-  `applyVerifiedTransaction`, never computed locally (no adding months to a date, no
-  manually extending access on a restore or a repeated notification).
-- **`ComplimentaryReservation`** — at most one row per user, enforcing "exactly one free
-  case ever." `generateScrubPrep` reserves one (via `subscriptions.checkAccessAndReserve`)
-  *before* calling OpenAI; `saveCase` consumes it *after* the resulting case is actually
-  saved (not at generation time — a generation that succeeds but is never saved, e.g. the
-  client crashes before calling `saveCase`, must not burn the allowance). A failed
-  generation releases the reservation immediately. A client-supplied `idempotencyKey`
-  (the same value passed to both `generateScrubPrep` and `saveCase`) makes a network-
-  interrupted retry of the same attempt safe — it reuses the existing reservation instead
-  of being treated as a second complimentary case; a genuinely concurrent second tap with
-  a *different* key is rejected outright (`Parse.Error` 119) while the first is in flight,
-  and a reservation untouched for 2+ minutes is treated as abandoned and released.
+  `subscriptionExpiresAt`, etc.), `appAccountToken` (a UUID, generated the first time it's
+  needed — required because StoreKit 2's `appAccountToken` purchase option needs a real
+  UUID, and Parse's `_User.objectId` isn't one), and a plain `hasUsedComplimentaryCase`
+  boolean. **Access is always exactly**
+  `subscriptionStatus === "active" || subscriptionStatus === "grace_period"` — every
+  subscription field on this row comes straight from an Apple-signed transaction/renewal
+  info via `applyVerifiedTransaction`, never computed locally (no adding months to a date,
+  no manually extending access on a restore or a repeated notification).
 
-**Known limitation, stated plainly rather than glossed over:** both classes' "exactly one
-row per owner" guarantee is enforced by a `beforeSave` Cloud Code trigger
-(`subscriptions.registerBeforeSaveGuards`), not a database-level unique index — Parse
-Server's public REST schema API doesn't reliably expose a way to declare one from Cloud
-Code alone. This closes the race for all but two requests landing within the same few
-milliseconds; `consumeReservation` has a second, final check as defense in depth (a lost
-race never double-consumes — the rare loser's case is still saved for the student rather
-than discarded). **Recommended (optional) hardening:** add a unique index on
-`ComplimentaryReservation.owner` via Back4App's Database Browser UI, if it exposes that
-option, as a second, database-level layer under the existing application-level guard.
+`generateScrubPrep` checks `subscriptions.checkAccess` (active subscription, or
+`!hasUsedComplimentaryCase`) *before* calling OpenAI; `saveCase` sets the flag to `true`
+*after* the resulting case is actually saved via `subscriptions.markComplimentaryCaseUsed`
+(a no-op if already true) — not at generation time, so a generation that succeeds but is
+never saved (e.g. the client crashes before calling `saveCase`) never costs the student
+their one free case, and a failed generation never touches the flag at all.
+
+This is intentionally not a reservation/idempotency-key system — a genuinely concurrent
+double-tap can, at worst, trigger two OpenAI calls before the flag is set, but can never
+result in more than one saved complimentary case (the flag only ever transitions
+false → true, once, in `saveCase`). A stricter reservation-based design was considered and
+deliberately dropped as disproportionate complexity for a low-price subscription product;
+see `cloud/scrubPrep/subscriptions.js`'s file comment for the full reasoning. The flag
+lives on `UserEntitlement` (fully Master-Key-locked) rather than as a field on `_User`
+directly, since `_User`'s CLP intentionally allows authenticated self-update (required for
+signup/login) — a client-writable boolean there could be reset via the SDK directly.
 
 `cloud/scrubPrep/appStoreVerifier.js` verifies a client-submitted transaction/renewal info
 against Apple's bundled root certificate (`cloud/certs/AppleRootCA-G3.cer`) — **no App
@@ -247,5 +243,5 @@ node scripts/call-cloud-function.js generateScrubPrep '{"caseDescription":"Lapar
 - The ephemeral `PimpSession` class (in-progress Q&A scratchpad, see `startPimpSession`/`answerPimpQuestion`) still has no owning user and is read/written purely via the Master Key — unlike `ScrubCase`/`PimpMeSession`, it was left as-is since it holds nothing worth attributing to an account (it's discarded once a session completes and gets persisted as a `PimpMeSession`).
 - PHI detection (`schemas.containsLikelyPHI`) is intentionally minimal (a few obvious patterns) per the product spec — not a compliance-grade PHI scrubber.
 - Subscription verification relies only on Apple's public root certificate (no App Store Connect API key) and client-pushed transactions — there is deliberately no App Store Server Notifications V2 (webhook) support and no proactive on-demand status polling via the App Store Server API; see "Subscriptions & complimentary case" for why, and what a real ASC API key (`.p8` + Key ID + Issuer ID) would add later if tighter refund/revocation handling is ever needed.
-- `ComplimentaryReservation`'s "exactly one row per owner" guarantee is application-level (a Cloud Code `beforeSave` check), not a database-enforced unique index — see "Subscriptions & complimentary case" for the honest caveat and the optional hardening step.
+- The complimentary-case flag isn't protected by a reservation/idempotency system — a genuinely concurrent double-tap can trigger an extra OpenAI call, though never a second saved complimentary case — see "Subscriptions & complimentary case" for the reasoning behind this deliberate simplification.
 - `@apple/app-store-server-library` is required from a hand-built bundle (`cloud/scrubPrep/vendor/appStoreServerLibrary.bundle.js`, via `npm run build:vendor`), not the npm package directly — Back4App's classic Cloud Code deploy unconditionally excludes any `node_modules` directory, confirmed by testing, at any depth. Regenerate and commit the bundle after bumping the library's version in `package.json`.

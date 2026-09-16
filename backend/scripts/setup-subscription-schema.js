@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Creates (or updates) the UserEntitlement and ComplimentaryReservation Parse classes
-// with Class-Level Permissions locked down entirely — no public/client access at all —
-// same pattern as scripts/setup-user-data-schema.js. Only ever touched from Cloud Code
-// using the Master Key (see cloud/scrubPrep/subscriptions.js).
+// Creates (or updates) the UserEntitlement Parse class with Class-Level Permissions
+// locked down entirely — no public/client access at all — same pattern as
+// scripts/setup-user-data-schema.js. Only ever touched from Cloud Code using the Master
+// Key (see cloud/scrubPrep/subscriptions.js). One row per user: verified subscription
+// state plus a plain hasUsedComplimentaryCase boolean.
 //
 // Safe to re-run: POSTs to create each class, and falls back to PUT (update) if it
 // already exists.
@@ -35,18 +36,9 @@ const SCHEMAS = [
       subscriptionAutoRenewProductId: { type: "String" },
       subscriptionOriginalTransactionId: { type: "String" },
       subscriptionLastSignedDate: { type: "Number" },
+      hasUsedComplimentaryCase: { type: "Boolean" },
       lastVerifiedAt: { type: "Date" },
       createdAtVerified: { type: "Date" },
-    },
-  },
-  {
-    className: "ComplimentaryReservation",
-    fields: {
-      owner: { type: "Pointer", targetClass: "_User" },
-      status: { type: "String" },
-      requestToken: { type: "String" },
-      reservedAt: { type: "Date" },
-      caseId: { type: "String" },
     },
   },
 ];
@@ -69,12 +61,6 @@ async function main() {
     await createOrUpdateSchema(schema, ctx);
   }
   console.log("Done.");
-  console.log(
-    "\nRecommended (optional, one-time) hardening: in the Back4App Database Browser, add " +
-      "a unique index on ComplimentaryReservation.owner if the UI exposes that option — " +
-      "the app already enforces this via a beforeSave guard, this just adds a second, " +
-      "database-level layer. See cloud/scrubPrep/subscriptions.js's file comment."
-  );
 }
 
 main().catch((err) => {
