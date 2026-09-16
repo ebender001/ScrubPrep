@@ -16,3 +16,6 @@ ios/**/*.xcworkspace/xcuserdata/
 ios/build/
 ios/DerivedData/
 .swiftpm/
+
+# Local reference docs/screenshots, not part of the repo
+docs/
