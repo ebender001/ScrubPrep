@@ -1,10 +1,13 @@
+import StoreKit
 import SwiftUI
+import UIKit
 
-/// About screen (spec §1, §15) — informational, plus account sign-out. Subscription
-/// management will live elsewhere (e.g. a Home toolbar icon) once a paywall is
-/// introduced, rather than here.
+/// About screen (spec §1, §15) — informational, account sign-out, and subscription
+/// management.
 struct AboutView: View {
     @EnvironmentObject private var authViewModel: AuthViewModel
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var showPaywall = false
 
     var body: some View {
         NavigationStack {
@@ -32,6 +35,8 @@ struct AboutView: View {
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    subscriptionCard
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Medical Disclaimer")
@@ -72,6 +77,9 @@ struct AboutView: View {
                 .padding()
             }
             .navigationTitle("About")
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
         }
     }
 
@@ -81,9 +89,78 @@ struct AboutView: View {
         }
         return "Signed in with Apple."
     }
+
+    private var subscriptionCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Subscription")
+                .font(.headline)
+            Text(subscriptionStatusLine)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if subscriptionManager.hasActiveSubscription {
+                Button("Manage Subscription") {
+                    Task { await showManageSubscriptions() }
+                }
+                .font(.subheadline.weight(.medium))
+            } else {
+                Button("Subscribe") {
+                    showPaywall = true
+                }
+                .font(.subheadline.weight(.medium))
+            }
+
+            Button("Restore Purchases") {
+                Task { try? await subscriptionManager.restore() }
+            }
+            .font(.subheadline.weight(.medium))
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    // Never describes a canceled-but-still-valid subscription as "expired" — a canceled
+    // subscription (autoRenewStatus false) that's still within its paid period reads as
+    // "Active until <date>", same as an auto-renewing one reads as "Renews <date>".
+    private var subscriptionStatusLine: String {
+        guard let subscription = subscriptionManager.accessStatus?.subscription else {
+            return "No active subscription."
+        }
+        let dateText = { (date: Date?) in
+            date?.formatted(date: .abbreviated, time: .omitted) ?? "soon"
+        }
+        switch subscription.status {
+        case "active":
+            if subscription.autoRenewStatus == true {
+                return "Renews \(dateText(subscription.expiresAt))."
+            }
+            return "Active until \(dateText(subscription.accessEndsAt)) (auto-renew is off)."
+        case "grace_period":
+            return "There's a problem with your payment method. Access continues until \(dateText(subscription.accessEndsAt)) while Apple retries."
+        case "billing_retry":
+            return "There's a problem with your payment method. Please update it to keep your subscription active."
+        case "expired":
+            return "Your subscription has expired."
+        case "revoked":
+            return "Your subscription was refunded."
+        default:
+            return "No active subscription."
+        }
+    }
+
+    @MainActor
+    private func showManageSubscriptions() async {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive })
+        else { return }
+        try? await AppStore.showManageSubscriptions(in: windowScene)
+    }
 }
 
 #Preview {
     AboutView()
         .environmentObject(AuthViewModel())
+        .environmentObject(SubscriptionManager())
 }

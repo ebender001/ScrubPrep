@@ -121,6 +121,9 @@ struct HomeView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
+            .sheet(isPresented: $viewModel.showPaywall) {
+                PaywallView(onPurchaseCompleted: viewModel.resumeAfterSubscribing)
+            }
         }
     }
 

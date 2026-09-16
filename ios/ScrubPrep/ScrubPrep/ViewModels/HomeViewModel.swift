@@ -7,6 +7,12 @@ final class HomeViewModel: ObservableObject {
     @Published var caseDescription: String = ""
     @Published var isGenerating = false
     @Published var errorMessage: String?
+    // Set when the backend rejects a generation attempt because the student has neither
+    // an active subscription nor an unused complimentary case (see
+    // ScrubPrepError.subscriptionRequired) — HomeView shows the paywall instead of the
+    // generic error alert. This is discovered from the backend's own rejection, which
+    // happens before any AI request, not from a client-side guess.
+    @Published var showPaywall = false
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
     // The (trimmed) case description `generatedPrep` was actually prepared for — Home's
@@ -256,10 +262,23 @@ final class HomeViewModel: ObservableObject {
             } catch {
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 isGenerating = false
+                if case ScrubPrepError.subscriptionRequired = error {
+                    showPaywall = true
+                    return
+                }
                 errorMessage = (error as? LocalizedError)?.errorDescription
                     ?? "Scrub Prep wasn't able to generate your preparation session. Please try again."
             }
         }
+    }
+
+    /// Called when the paywall confirms an active subscription — dismisses it (via the
+    /// `showPaywall` binding) and resumes the exact same case-generation attempt that
+    /// triggered it, exactly once. `caseDescription`/`selectedSpecialty` were never
+    /// touched while the paywall sheet was up, so this just re-runs `prepareCase()`.
+    func resumeAfterSubscribing() {
+        showPaywall = false
+        prepareCase()
     }
 
     /// Bails out of an in-progress generation (spec: Cancel on the preparing screen

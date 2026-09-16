@@ -5,6 +5,8 @@ import ParseSwift
 // see UNRECOGNIZED_CASE_ERROR_CODE there. Kept in sync manually; there's no shared schema
 // between the JS and Swift sides for this.
 private let unrecognizedCaseErrorCode = 4001
+// Same custom-code convention — see backend/cloud/main.js's SUBSCRIPTION_REQUIRED_ERROR_CODE.
+private let subscriptionRequiredErrorCode = 4002
 
 // MARK: - Cloud Function request types
 //
@@ -115,6 +117,18 @@ nonisolated private struct SavePimpMeSessionRequest: ParseCloudable {
     let summary: PimpSummary
 }
 
+nonisolated private struct GetAccessStatusRequest: ParseCloudable {
+    typealias ReturnType = AccessStatus
+    var functionJobName = "getAccessStatus"
+}
+
+nonisolated private struct SyncSubscriptionStatusRequest: ParseCloudable {
+    typealias ReturnType = AccessStatus
+    var functionJobName = "syncSubscriptionStatus"
+    let signedTransactionInfo: String
+    let signedRenewalInfo: String?
+}
+
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
 /// All OpenAI calls happen server-side — this type never sees an OpenAI key (spec §4).
 struct ParseScrubPrepService: ScrubPrepServicing {
@@ -184,9 +198,23 @@ struct ParseScrubPrepService: ScrubPrepServicing {
         }
     }
 
+    func getAccessStatus() async throws -> AccessStatus {
+        try await run { try await GetAccessStatusRequest().runFunction() }
+    }
+
+    func syncSubscriptionStatus(signedTransactionInfo: String, signedRenewalInfo: String?) async throws -> AccessStatus {
+        try await run {
+            try await SyncSubscriptionStatusRequest(
+                signedTransactionInfo: signedTransactionInfo,
+                signedRenewalInfo: signedRenewalInfo
+            ).runFunction()
+        }
+    }
+
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:
-    /// never show raw backend errors to the student). `.unrecognizedCase` is the one
-    /// deliberate exception — that message is meant to be shown verbatim.
+    /// never show raw backend errors to the student). `.unrecognizedCase` and
+    /// `.subscriptionRequired` are the deliberate exceptions — the former's message is
+    /// shown verbatim, the latter triggers the paywall instead of an error alert.
     @discardableResult
     private func run<T>(_ operation: () async throws -> T) async throws -> T {
         do {
@@ -197,6 +225,9 @@ struct ParseScrubPrepService: ScrubPrepServicing {
             }
             if error.code == .other, error.otherCode == unrecognizedCaseErrorCode {
                 throw ScrubPrepError.unrecognizedCase(message: error.message)
+            }
+            if error.code == .other, error.otherCode == subscriptionRequiredErrorCode {
+                throw ScrubPrepError.subscriptionRequired
             }
             throw ScrubPrepError.server
         } catch {

@@ -1,0 +1,113 @@
+{
+  "identifier" : "80E0C92A-1031-4196-A74E-204DDE7F3434",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "46A42572-CA6B-49B7-9AFB-2AB60A0BC7FA",
+      "localizations" : [],
+      "name" : "Scrub Prep Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "1.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "A12859C4-39F2-48E1-9D6B-E2AAFCAF16ED",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly access to case preparation, Pimp Me, and Rapid Fire.",
+              "displayName" : "Scrub Prep Pro Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.benderapps.ScrubPrep.subscription.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Scrub Prep Pro Monthly",
+          "subscriptionGroupID" : "46A42572-CA6B-49B7-9AFB-2AB60A0BC7FA",
+          "type" : "RecurringSubscription",
+          "win_back_offers" : []
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "2.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "7C2A6B1E-1F0A-4B3C-9C1D-3E5F7A8B9C0D",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Every-3-months access to case preparation, Pimp Me, and Rapid Fire.",
+              "displayName" : "Scrub Prep Pro Quarterly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "dev.benderapps.ScrubPrep.subscription.quarterly",
+          "recurringSubscriptionPeriod" : "P3M",
+          "referenceName" : "Scrub Prep Pro Quarterly",
+          "subscriptionGroupID" : "46A42572-CA6B-49B7-9AFB-2AB60A0BC7FA",
+          "type" : "RecurringSubscription",
+          "win_back_offers" : []
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
