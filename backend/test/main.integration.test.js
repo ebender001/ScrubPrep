@@ -10,6 +10,7 @@ const https = require("node:https");
 let idCounter = 0;
 const store = {};
 let specialtiesByName = {};
+const beforeSaveHooks = {};
 
 class FakeParseError extends Error {
   constructor(code, message) {
@@ -32,7 +33,14 @@ class FakeParseObject {
   get(key) {
     return this.attributes[key];
   }
+  existed() {
+    return !!this.id;
+  }
   async save() {
+    const hook = beforeSaveHooks[this.className];
+    if (hook) {
+      await hook({ object: this });
+    }
     const now = new Date();
     if (!this.id) {
       idCounter += 1;
@@ -128,6 +136,7 @@ global.Parse = {
     OPERATION_FORBIDDEN: 119,
     INTERNAL_SERVER_ERROR: 1,
     INVALID_SESSION_TOKEN: 209,
+    DUPLICATE_VALUE: 137,
   }),
   Cloud: {
     define: (name, handler) => {
@@ -136,10 +145,14 @@ global.Parse = {
     job: (name, handler) => {
       registry[name] = handler;
     },
+    beforeSave: (name, handler) => {
+      beforeSaveHooks[name] = handler;
+    },
   },
 };
 
 process.env.OPENAI_API_KEY = "test-key";
+process.env.APPLE_BUNDLE_ID = "dev.benderapps.ScrubPrep";
 
 // https.request mock: pops the next canned OpenAI-shaped response off a queue.
 // aiClient.js calls `https.request` directly (not global fetch), so we patch
@@ -350,11 +363,22 @@ test("savePimpMeSession overwrites the existing row for the same (case, difficul
   assert.equal(sessions[0].transcript.length, 2);
 });
 
+test("generateScrubPrep requires a signed-in user", async () => {
+  await assert.rejects(
+    () => registry.generateScrubPrep({ params: { caseDescription: "Lap chole" }, user: undefined }),
+    (err) => {
+      assert.equal(err.code, 209);
+      return true;
+    }
+  );
+});
+
 test("generateScrubPrep rejects obvious PHI before calling the AI", async () => {
   await assert.rejects(
     () =>
       registry.generateScrubPrep({
         params: { caseDescription: "Lap chole, patient DOB 1/1/1980" },
+        user: { id: "phi_test_user" },
       }),
     (err) => {
       assert.match(err.message, /remove patient names/);
@@ -363,7 +387,8 @@ test("generateScrubPrep rejects obvious PHI before calling the AI", async () => 
   );
 });
 
-test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish input", async () => {
+test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish input, and preserves complimentary eligibility on failure", async () => {
+  const owner = { id: "gibberish_test_user" };
   responseQueue.push({
     recognized: false,
     title: "Unrecognized Case",
@@ -377,10 +402,135 @@ test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish i
     likely_questions: [{ question: "x", answer: "x" }],
   });
   await assert.rejects(
-    () => registry.generateScrubPrep({ params: { caseDescription: "asdkjfhaslkdjf qwerty" } }),
+    () => registry.generateScrubPrep({ params: { caseDescription: "asdkjfhaslkdjf qwerty" }, user: owner }),
     (err) => {
       assert.equal(err.code, 4001);
       assert.ok(err.message.length > 0);
+      return true;
+    }
+  );
+  // The failed attempt above should have released its reservation — a fresh attempt for
+  // the same user must still be treated as their (still-unused) complimentary case, not
+  // rejected as already-consumed.
+  const status = await registry.getAccessStatus({ params: {}, user: owner });
+  assert.equal(status.canGenerateNewCase, true);
+  assert.equal(status.hasUsedComplimentaryCase, false);
+});
+
+test("generateScrubPrep: a new user's first case is complimentary; a second attempt after saving is paywalled", async () => {
+  const owner = { id: "complimentary_flow_user" };
+  responseQueue.push({
+    recognized: true,
+    title: "Appendectomy",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  const idempotencyKey = "idem-1";
+  const prep1 = await registry.generateScrubPrep({
+    params: { caseDescription: "Appendectomy", idempotencyKey },
+    user: owner,
+  });
+  assert.equal(prep1.title, "Appendectomy");
+
+  const beforeSave = await registry.getAccessStatus({ params: {}, user: owner });
+  assert.equal(beforeSave.canGenerateNewCase, true, "not yet consumed until saveCase succeeds");
+
+  await registry.saveCase({
+    params: { caseDescription: "Appendectomy", prep: prep1, idempotencyKey },
+    user: owner,
+  });
+
+  const afterSave = await registry.getAccessStatus({ params: {}, user: owner });
+  assert.equal(afterSave.canGenerateNewCase, false);
+  assert.equal(afterSave.hasUsedComplimentaryCase, true);
+
+  await assert.rejects(
+    () => registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner }),
+    (err) => {
+      assert.equal(err.code, 4002);
+      return true;
+    }
+  );
+});
+
+test("generateScrubPrep: a retry with the same idempotency key reuses the same reservation instead of granting a second complimentary case", async () => {
+  const owner = { id: "retry_user" };
+  const idempotencyKey = "idem-retry";
+  responseQueue.push({
+    recognized: true,
+    title: "First",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  await registry.generateScrubPrep({ params: { caseDescription: "First", idempotencyKey }, user: owner });
+
+  // Simulate a network-interrupted retry of the exact same attempt (same key) before the
+  // case was ever saved — must be allowed to proceed again, not treated as a new/second
+  // complimentary case.
+  responseQueue.push({
+    recognized: true,
+    title: "First",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  const retried = await registry.generateScrubPrep({
+    params: { caseDescription: "First", idempotencyKey },
+    user: owner,
+  });
+  assert.equal(retried.title, "First");
+
+  await registry.saveCase({ params: { caseDescription: "First", prep: retried, idempotencyKey }, user: owner });
+  const status = await registry.getAccessStatus({ params: {}, user: owner });
+  assert.equal(status.hasUsedComplimentaryCase, true);
+});
+
+test("generateScrubPrep: a concurrent second attempt with a different idempotency key is rejected while the first is in flight", async () => {
+  const owner = { id: "concurrent_user" };
+  responseQueue.push({
+    recognized: true,
+    title: "First",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  // First call reserves but never saves (simulating still-in-flight from the client's
+  // perspective) — a second, distinct tap must be rejected, not silently allowed to
+  // reserve a duplicate slot.
+  await registry.generateScrubPrep({
+    params: { caseDescription: "First", idempotencyKey: "key-A" },
+    user: owner,
+  });
+  await assert.rejects(
+    () =>
+      registry.generateScrubPrep({
+        params: { caseDescription: "First", idempotencyKey: "key-B" },
+        user: owner,
+      }),
+    (err) => {
+      assert.equal(err.code, 119); // OPERATION_FORBIDDEN — not the paywall code
       return true;
     }
   );

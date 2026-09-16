@@ -12,6 +12,11 @@ const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
 const cleanup = require("./scrubPrep/cleanup");
 const aiClient = require("./scrubPrep/aiClient");
 const aiUsage = require("./scrubPrep/aiUsage");
+const subscriptions = require("./scrubPrep/subscriptions");
+const appStoreVerifier = require("./scrubPrep/appStoreVerifier");
+const crypto = require("crypto");
+
+subscriptions.registerBeforeSaveGuards();
 
 // Every AI-backed Cloud Function passes this as its `deps` so each underlying OpenAI call
 // (prep.js/pimp.js/rapidFire.js all already accept an injectable `generateJSON` for tests)
@@ -53,6 +58,12 @@ function sanitizePreviousQuestions(value) {
 // accept a plain number for a custom code — it round-trips as ParseError.Code.other with
 // otherCode set to this value on the Swift side (see ParseError.swift's Decodable init).
 const UNRECOGNIZED_CASE_ERROR_CODE = 4001;
+
+// Same custom-code convention as UNRECOGNIZED_CASE_ERROR_CODE — the iOS client checks for
+// this specific code to show the paywall instead of a generic error alert. Thrown by
+// subscriptions.checkAccessAndReserve (see generateScrubPrep below) when the caller has
+// neither an active subscription nor an unused complimentary case.
+const SUBSCRIPTION_REQUIRED_ERROR_CODE = 4002;
 
 const UNRECOGNIZED_CASE_MESSAGES = [
   "That doesn't look like a real operation. Try again, or I'm telling your chief resident.",
@@ -138,15 +149,43 @@ function safeHandler(handler) {
 Parse.Cloud.define(
   "generateScrubPrep",
   safeHandler(async (request) => {
+    const user = requireUser(request);
     const caseDescription = requireNonEmptyString(
       request.params.caseDescription,
       "caseDescription",
       MAX_CASE_DESCRIPTION_LENGTH
     );
     assertNoPHI(caseDescription);
+
+    const idempotencyKey =
+      typeof request.params.idempotencyKey === "string" && request.params.idempotencyKey.trim()
+        ? request.params.idempotencyKey.trim()
+        : crypto.randomUUID();
+
+    // Access is checked (and, for a complimentary case, reserved) BEFORE any AI request —
+    // a denial here never touches OpenAI. See subscriptions.js for the full state machine.
+    let access;
+    try {
+      access = await subscriptions.checkAccessAndReserve(user, idempotencyKey);
+    } catch (err) {
+      if (err instanceof subscriptions.SubscriptionRequiredError) {
+        throw new Parse.Error(SUBSCRIPTION_REQUIRED_ERROR_CODE, err.message);
+      }
+      if (err instanceof subscriptions.ReservationInProgressError) {
+        throw new Parse.Error(Parse.Error.OPERATION_FORBIDDEN, err.message);
+      }
+      throw err;
+    }
+
     try {
       return await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
     } catch (err) {
+      // A failed generation must never consume a complimentary allowance — release the
+      // reservation so the student's eligibility is untouched (the case wasn't saved,
+      // and won't be, so there is nothing for saveCase's consume step to key off of).
+      if (access.mode === "complimentary") {
+        await subscriptions.releaseReservation(access.reservation);
+      }
       if (err instanceof prep.UnrecognizedCaseError) {
         throw new Parse.Error(UNRECOGNIZED_CASE_ERROR_CODE, randomUnrecognizedCaseMessage());
       }
@@ -359,8 +398,24 @@ Parse.Cloud.define(
       "caseDescription",
       MAX_CASE_DESCRIPTION_LENGTH
     );
-    const { prep: prepContext } = request.params;
+    const { prep: prepContext, idempotencyKey } = request.params;
     const savedCase = await cases.upsertCase({ owner: user, caseDescription, prep: prepContext });
+
+    // The complimentary allowance is consumed HERE, not in generateScrubPrep — only once
+    // the case this generation produced has actually been durably saved. If this save
+    // never happens (client crash, dropped network), the reservation self-heals: it goes
+    // stale after subscriptions.STALE_RESERVATION_MS and a fresh attempt can proceed.
+    if (typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+      const reservation = await subscriptions.fetchReservation(user);
+      if (
+        reservation &&
+        reservation.get("status") === "reserved" &&
+        reservation.get("requestToken") === idempotencyKey.trim()
+      ) {
+        await subscriptions.consumeReservation(reservation, savedCase.id);
+      }
+    }
+
     return { case: savedCase };
   })
 );
@@ -423,6 +478,54 @@ Parse.Cloud.define(
       summary,
     });
     return { session };
+  })
+);
+
+Parse.Cloud.define(
+  "getAccessStatus",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const pendingIdempotencyKey =
+      typeof request.params.pendingIdempotencyKey === "string" && request.params.pendingIdempotencyKey.trim()
+        ? request.params.pendingIdempotencyKey.trim()
+        : undefined;
+    return await subscriptions.getAccessStatus(user, { pendingIdempotencyKey });
+  })
+);
+
+Parse.Cloud.define(
+  "syncSubscriptionStatus",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const signedTransactionInfo = requireNonEmptyString(
+      request.params.signedTransactionInfo,
+      "signedTransactionInfo"
+    );
+    const signedRenewalInfo =
+      typeof request.params.signedRenewalInfo === "string" && request.params.signedRenewalInfo.trim()
+        ? request.params.signedRenewalInfo.trim()
+        : undefined;
+
+    let decodedTransaction;
+    try {
+      decodedTransaction = await appStoreVerifier.verifyTransaction(signedTransactionInfo);
+    } catch (err) {
+      throw new Parse.Error(Parse.Error.VALIDATION_ERROR, "That purchase couldn't be verified.");
+    }
+
+    let decodedRenewalInfo = null;
+    if (signedRenewalInfo) {
+      try {
+        decodedRenewalInfo = await appStoreVerifier.verifyRenewalInfo(signedRenewalInfo);
+      } catch (err) {
+        // Non-fatal — the transaction itself (expiry/revocation) is still authoritative
+        // and gets applied; renewal info only adds grace-period/auto-renew display detail.
+        decodedRenewalInfo = null;
+      }
+    }
+
+    await subscriptions.applyVerifiedTransaction({ owner: user, decodedTransaction, decodedRenewalInfo });
+    return await subscriptions.getAccessStatus(user, {});
   })
 );
 
