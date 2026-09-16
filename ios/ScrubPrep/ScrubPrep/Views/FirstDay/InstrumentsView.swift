@@ -158,7 +158,6 @@ private let instrumentCategories: [InstrumentCategory] = [
                 description: "Holds and passes the needle during suturing.",
                 images: [InstrumentImage("needle-driver")]
             ),
-            Instrument(name: "Suture scissors", description: "Cuts suture after knot tying."),
             Instrument(
                 name: "Ryder needle holder",
                 description: "A slender needle holder favored for fine, delicate suturing.",
