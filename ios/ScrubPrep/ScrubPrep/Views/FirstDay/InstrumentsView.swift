@@ -108,8 +108,16 @@ private let instrumentCategories: [InstrumentCategory] = [
                 description: "General-purpose clamp for grasping tissue or vessels.",
                 images: [InstrumentImage("kelly-clamp")]
             ),
-            Instrument(name: "Mosquito clamp", description: "Small clamp for fine hemostasis."),
-            Instrument(name: "Right-angle clamp", description: "Used to dissect around and encircle structures."),
+            Instrument(
+                name: "Mosquito clamp",
+                description: "Small clamp for fine hemostasis.",
+                images: [InstrumentImage("mosquito-clamp")]
+            ),
+            Instrument(
+                name: "Right-angle clamp",
+                description: "Used to dissect around and encircle structures.",
+                images: [InstrumentImage("right-angle-clamp")]
+            ),
         ]
     ),
     InstrumentCategory(
@@ -145,7 +153,11 @@ private let instrumentCategories: [InstrumentCategory] = [
         title: "Suturing",
         systemImage: "link",
         instruments: [
-            Instrument(name: "Needle driver", description: "Holds and passes the needle during suturing."),
+            Instrument(
+                name: "Needle driver",
+                description: "Holds and passes the needle during suturing.",
+                images: [InstrumentImage("needle-driver")]
+            ),
             Instrument(name: "Suture scissors", description: "Cuts suture after knot tying."),
             Instrument(
                 name: "Ryder needle holder",
