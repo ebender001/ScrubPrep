@@ -25,7 +25,7 @@ private let instrumentCategories: [InstrumentCategory] = [
         title: "Cutting",
         systemImage: "scissors",
         instruments: [
-            Instrument(name: "Scalpel (Bard-Parker)", description: "The primary tool for skin and tissue incisions.", imageName: nil),
+            Instrument(name: "Scalpel (Bard-Parker)", description: "The primary tool for skin and tissue incisions.", imageName: "scalpel-bard-parker"),
             Instrument(name: "Metzenbaum scissors", description: "Fine scissors for dissecting delicate tissue.", imageName: nil),
             Instrument(name: "Mayo scissors", description: "Heavier scissors for cutting sutures and tougher tissue.", imageName: nil),
         ]
