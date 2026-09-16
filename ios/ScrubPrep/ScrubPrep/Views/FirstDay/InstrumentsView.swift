@@ -13,6 +13,14 @@ private struct InstrumentImage: Identifiable {
     }
 }
 
+/// Photo credit shown at the bottom of an instrument's detail sheet, when the photo
+/// isn't the app's own and requires attribution.
+private struct InstrumentAttribution {
+    let credit: String
+    let note: String
+    let url: URL
+}
+
 /// One instrument in the Instruments 101 reference. `images` are Assets.xcassets image
 /// set names — empty until photos have been added. A row is only tappable once it has
 /// at least one image, so there's never a tap that opens an empty sheet. An instrument
@@ -23,11 +31,13 @@ private struct Instrument: Identifiable {
     let name: String
     let description: String
     let images: [InstrumentImage]
+    let attribution: InstrumentAttribution?
 
-    init(name: String, description: String, images: [InstrumentImage] = []) {
+    init(name: String, description: String, images: [InstrumentImage] = [], attribution: InstrumentAttribution? = nil) {
         self.name = name
         self.description = description
         self.images = images
+        self.attribution = attribution
     }
 }
 
@@ -51,7 +61,12 @@ private let instrumentCategories: [InstrumentCategory] = [
             Instrument(
                 name: "Metzenbaum scissors",
                 description: "Fine scissors for dissecting delicate tissue.",
-                images: [InstrumentImage("metzenbaum-scissors")]
+                images: [InstrumentImage("metzenbaum-scissors")],
+                attribution: InstrumentAttribution(
+                    credit: "Image courtesy of Scanlan International.",
+                    note: "Used with permission",
+                    url: URL(string: "https://www.scanlaninternational.com/product/7007-216-2sc/")!
+                )
             ),
             Instrument(
                 name: "Mayo scissors",
@@ -277,6 +292,22 @@ private struct InstrumentDetailSheet: View {
                 Text(instrument.description)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+
+                if let attribution = instrument.attribution {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(attribution.credit)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                        HStack(spacing: 4) {
+                            Text(attribution.note)
+                                .font(.caption.italic())
+                                .foregroundStyle(.secondary)
+                            Link("View instrument →", destination: attribution.url)
+                                .font(.caption.italic())
+                        }
+                    }
+                }
             }
             .padding()
         }
