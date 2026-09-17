@@ -80,14 +80,19 @@ final class SubscriptionManager: ObservableObject {
     }
 
     func purchase(_ product: Product) async throws -> PurchaseOutcome {
+        let ownToken = await resolvedAppAccountToken()
         var options: Set<Product.PurchaseOption> = []
-        if let token = await resolvedAppAccountToken() {
-            options.insert(.appAccountToken(token))
+        if let ownToken {
+            options.insert(.appAccountToken(ownToken))
         }
         let result = try await product.purchase(options: options)
         switch result {
         case .success(let verification):
-            try await reportAndFinish(verification, productID: product.id)
+            // Pass the exact token we just used, rather than reading it back off the
+            // transaction — a direct purchase this account just made is unambiguously
+            // theirs regardless of whether StoreKit faithfully echoes the option back
+            // (local StoreKit Configuration testing isn't guaranteed to).
+            try await reportAndFinish(verification, productID: product.id, knownAppAccountToken: ownToken)
             await refreshAccessStatus()
             return .success
         case .userCancelled:
@@ -103,7 +108,7 @@ final class SubscriptionManager: ObservableObject {
     func restore() async throws {
         try await AppStore.sync()
         for await result in Transaction.currentEntitlements {
-            try? await reportAndFinish(result, productID: nil)
+            try? await reportAndFinish(result, productID: nil, knownAppAccountToken: nil)
         }
         await refreshAccessStatus()
     }
@@ -115,7 +120,7 @@ final class SubscriptionManager: ObservableObject {
     private func startTransactionListener() {
         updatesTask = Task {
             for await result in Transaction.updates {
-                try? await reportAndFinish(result, productID: nil)
+                try? await reportAndFinish(result, productID: nil, knownAppAccountToken: nil)
                 await refreshAccessStatus()
             }
         }
@@ -124,22 +129,30 @@ final class SubscriptionManager: ObservableObject {
     /// Verifies the transaction on-device (StoreKit 2's own check — real Apple
     /// cryptography), reports its plain fields to the backend, and only finishes the
     /// transaction once that call succeeds — so a dropped network call doesn't silently
-    /// lose a transaction StoreKit thinks is already handled.
-    private func reportAndFinish(_ result: VerificationResult<Transaction>, productID: String?) async throws {
+    /// lose a transaction StoreKit thinks is already handled. `knownAppAccountToken`, when
+    /// provided (a fresh purchase this account just made), takes precedence over whatever
+    /// the transaction itself reports; for restore/listener-delivered transactions (where
+    /// we have no other way to know whose they are) `transaction.appAccountToken` is used
+    /// instead, which is what actually lets the backend reject a foreign transaction.
+    private func reportAndFinish(
+        _ result: VerificationResult<Transaction>,
+        productID: String?,
+        knownAppAccountToken: UUID?
+    ) async throws {
         let transaction = try checkVerified(result)
         let resolvedProductID = productID ?? transaction.productID
         let renewal = await currentRenewalDetails(forProductID: resolvedProductID)
-        let isRevoked = transaction.revocationDate != nil
+        let reportedToken = knownAppAccountToken?.uuidString ?? transaction.appAccountToken?.uuidString
 
         let report = ReportedSubscriptionStatus(
-            status: statusString(renewalState: renewal?.state, isRevoked: isRevoked),
+            status: statusString(transaction: transaction, renewalState: renewal?.state),
             productId: resolvedProductID,
             expiresAt: transaction.expirationDate,
             gracePeriodExpiresAt: renewal?.gracePeriodExpiresAt,
             autoRenewStatus: renewal?.autoRenewStatus,
             autoRenewProductId: renewal?.autoRenewProductId,
             originalTransactionId: String(transaction.originalID),
-            appAccountToken: transaction.appAccountToken?.uuidString
+            appAccountToken: reportedToken
         )
         _ = try await service.syncSubscriptionStatus(report)
         await transaction.finish()
@@ -169,18 +182,21 @@ final class SubscriptionManager: ObservableObject {
         )
     }
 
-    // Revocation always wins regardless of what StoreKit's renewal state otherwise says.
-    private func statusString(renewalState: Product.SubscriptionInfo.RenewalState?, isRevoked: Bool) -> String {
-        if isRevoked { return "revoked" }
-        guard let renewalState else { return "none" }
-        switch renewalState {
-        case .subscribed: return "active"
-        case .inGracePeriod: return "grace_period"
-        case .inBillingRetryPeriod: return "billing_retry"
-        case .expired: return "expired"
-        case .revoked: return "revoked"
-        default: return "none"
+    /// The transaction's own `expirationDate`/`revocationDate` are always available (no
+    /// async fetch needed) and are the primary signal — this must work correctly even
+    /// when `currentRenewalDetails` fails or hasn't caught up yet (a real timing gap right
+    /// after a fresh purchase, worse in local StoreKit testing). `renewalState` only
+    /// refines grace-period/billing-retry detail on top of that; it never downgrades an
+    /// otherwise-active, unexpired transaction to "none" just because it couldn't be
+    /// fetched.
+    private func statusString(transaction: Transaction, renewalState: Product.SubscriptionInfo.RenewalState?) -> String {
+        if transaction.revocationDate != nil { return "revoked" }
+        if renewalState == .inGracePeriod { return "grace_period" }
+        if let expirationDate = transaction.expirationDate, expirationDate > Date() {
+            return "active"
         }
+        if renewalState == .inBillingRetryPeriod { return "billing_retry" }
+        return "expired"
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
