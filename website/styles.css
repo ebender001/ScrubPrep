@@ -74,17 +74,28 @@ header.site-header .wrap {
 }
 
 .logo-mark {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  display: flex;
+  flex-shrink: 0;
+  display: block;
+}
+
+.nav-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
-  font-weight: 800;
-  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.nav-toggle svg {
+  width: 20px;
+  height: 20px;
 }
 
 nav.site-nav {
@@ -97,6 +108,35 @@ nav.site-nav a {
   color: var(--ink);
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+@media (max-width: 640px) {
+  .nav-toggle {
+    display: flex;
+  }
+
+  nav.site-nav {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    gap: 2px;
+    order: 3;
+    padding-top: 14px;
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  nav.site-nav.open {
+    display: flex;
+  }
+
+  nav.site-nav a {
+    padding: 10px 2px;
+  }
+
+  header.site-header .wrap {
+    position: relative;
+  }
 }
 
 nav.site-nav a:hover {
@@ -234,6 +274,55 @@ section .section-lede {
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+/* Screens showcase */
+
+.screens-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+@media (max-width: 560px) {
+  .screens-grid {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+}
+
+.screen-item {
+  text-align: center;
+}
+
+.phone-frame {
+  border: 8px solid var(--ink);
+  border-radius: 34px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -20px rgba(28, 28, 30, 0.35);
+  line-height: 0;
+}
+
+.phone-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.screen-caption {
+  margin-top: 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.screen-caption span {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 /* Pricing */
