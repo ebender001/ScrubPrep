@@ -39,7 +39,6 @@ final class SubscriptionManager: ObservableObject {
 
     private let service: ScrubPrepServicing
     private var updatesTask: Task<Void, Never>?
-    private var cachedAppAccountToken: UUID?
 
     init(service: ScrubPrepServicing? = nil) {
         self.service = service ?? ScrubPrepServiceFactory.make()
@@ -69,18 +68,18 @@ final class SubscriptionManager: ObservableObject {
     func refreshAccessStatus() async {
         if let status = try? await service.getAccessStatus() {
             accessStatus = status
-            cachedAppAccountToken = UUID(uuidString: status.appAccountToken)
         }
     }
 
-    /// This account's own `appAccountToken` — fetching it (via `getAccessStatus`, which
-    /// lazily creates one server-side) if it isn't already cached. Passed to StoreKit on
-    /// purchase, and included when reporting any transaction, purely as a disambiguation
-    /// aid (see AccessStatus's doc comment) — not a cryptographic control.
+    /// This account's own `appAccountToken` — always fetched fresh (never cached across
+    /// calls) so it's guaranteed to belong to whoever is *currently* signed in. This
+    /// manager is created once and lives for the app's whole process lifetime, so caching
+    /// this across a sign-out/sign-in as a different account would silently send a stale,
+    /// mismatched token — exactly the bug this was fixed from. The extra round trip only
+    /// happens right before a purchase, not on any hot path.
     private func resolvedAppAccountToken() async -> UUID? {
-        if let cachedAppAccountToken { return cachedAppAccountToken }
         await refreshAccessStatus()
-        return cachedAppAccountToken
+        return accessStatus.flatMap { UUID(uuidString: $0.appAccountToken) }
     }
 
     func purchase(_ product: Product) async throws -> PurchaseOutcome {
