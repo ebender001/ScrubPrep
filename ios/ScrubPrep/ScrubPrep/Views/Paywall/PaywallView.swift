@@ -252,7 +252,9 @@ struct PaywallView: View {
                         onPurchaseCompleted()
                     } else {
                         purchaseState = .idle
-                        errorMessage = "Your purchase went through, but we couldn't confirm it with our server yet. This usually resolves in a moment — try again, or check Manage Subscription in Settings."
+                        // TEMPORARY: appending diagnostic detail while investigating why
+                        // this shows up — remove once resolved.
+                        errorMessage = "Your purchase went through, but we couldn't confirm it with our server yet. This usually resolves in a moment — try again, or check Manage Subscription in Settings.\n\nDEBUG: \(subscriptionManager.lastSyncDebugDescription ?? "no sync attempted")"
                     }
                 case .pending:
                     purchaseState = .pending

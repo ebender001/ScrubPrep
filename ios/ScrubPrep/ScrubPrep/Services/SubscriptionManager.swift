@@ -29,6 +29,10 @@ final class SubscriptionManager: ObservableObject {
     @Published private(set) var isLoadingProducts = false
     @Published private(set) var productsLoadError: String?
     @Published private(set) var accessStatus: AccessStatus?
+    // TEMPORARY diagnostic — remove once the "couldn't confirm" investigation is closed.
+    // Captures exactly what the last transaction report sent and what the backend handed
+    // back, so a failure to apply can be seen without attaching a debugger.
+    @Published private(set) var lastSyncDebugDescription: String?
 
     var hasActiveSubscription: Bool { accessStatus?.subscription.isActive ?? false }
     var canGenerateNewCase: Bool { accessStatus?.canGenerateNewCase ?? true }
@@ -154,7 +158,16 @@ final class SubscriptionManager: ObservableObject {
             originalTransactionId: String(transaction.originalID),
             appAccountToken: reportedToken
         )
-        _ = try await service.syncSubscriptionStatus(report)
+        do {
+            let resultStatus = try await service.syncSubscriptionStatus(report)
+            lastSyncDebugDescription = """
+            sent: status=\(report.status) productId=\(report.productId ?? "nil") expiresAt=\(report.expiresAt ?? "nil") token=\(report.appAccountToken ?? "nil")
+            got back: isActive=\(resultStatus.subscription.isActive) status=\(resultStatus.subscription.status)
+            """
+        } catch {
+            lastSyncDebugDescription = "syncSubscriptionStatus THREW: \(error)"
+            throw error
+        }
         await transaction.finish()
     }
 
