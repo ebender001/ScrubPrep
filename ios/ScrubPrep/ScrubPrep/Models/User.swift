@@ -21,4 +21,11 @@ nonisolated struct User: ParseUser {
     var emailVerified: Bool?
     var password: String?
     var authData: [String: [String: String]?]?
+
+    /// Whether this account has ever had a case saved for free — set server-side (see
+    /// backend/cloud/scrubPrep/subscriptions.js's `markComplimentaryCaseUsed`, called from
+    /// `saveCase`), read-only from the client SDK (a `beforeSave` guard on `_User` rejects
+    /// any non-Master-Key write touching it). `nil` decodes the same as `false` — a value
+    /// this app treats identically (see HomeViewModel.refreshComplimentaryCaseStatus).
+    var hasUsedComplimentaryCase: Bool?
 }

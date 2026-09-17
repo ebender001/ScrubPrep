@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     var body: some View {
         NavigationStack {
@@ -83,6 +84,7 @@ struct HomeView: View {
             }
             .navigationTitle("Scrub Prep")
             .task {
+                viewModel.attach(subscriptionManager: subscriptionManager)
                 await viewModel.loadCases()
             }
             .navigationDestination(for: HomeRoute.self) { route in
@@ -109,7 +111,9 @@ struct HomeView: View {
             .overlay {
                 if viewModel.isGenerating {
                     LoadingView(
-                        title: "Preparing your case\u{2026}",
+                        title: viewModel.isPreparingComplimentaryCase
+                            ? "Preparing your free case\u{2026}\nSubsequent cases require a subscription"
+                            : "Preparing your case\u{2026}",
                         messages: viewModel.loadingMessages,
                         onCancel: viewModel.cancelPreparing
                     )
@@ -163,4 +167,5 @@ enum HomeRoute: Hashable {
 
 #Preview {
     HomeView()
+        .environmentObject(SubscriptionManager())
 }

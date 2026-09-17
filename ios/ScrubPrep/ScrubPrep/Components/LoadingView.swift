@@ -20,6 +20,7 @@ struct LoadingView: View {
                 .controlSize(.large)
             Text(title)
                 .font(.headline)
+                .multilineTextAlignment(.center)
             if !messages.isEmpty {
                 Text(messages[messageIndex])
                     .font(.subheadline)

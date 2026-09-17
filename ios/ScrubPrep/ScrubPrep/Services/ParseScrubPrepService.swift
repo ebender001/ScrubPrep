@@ -5,8 +5,6 @@ import ParseSwift
 // see UNRECOGNIZED_CASE_ERROR_CODE there. Kept in sync manually; there's no shared schema
 // between the JS and Swift sides for this.
 private let unrecognizedCaseErrorCode = 4001
-// Same custom-code convention — see backend/cloud/main.js's SUBSCRIPTION_REQUIRED_ERROR_CODE.
-private let subscriptionRequiredErrorCode = 4002
 
 // MARK: - Cloud Function request types
 //
@@ -117,24 +115,6 @@ nonisolated private struct SavePimpMeSessionRequest: ParseCloudable {
     let summary: PimpSummary
 }
 
-nonisolated private struct GetAccessStatusRequest: ParseCloudable {
-    typealias ReturnType = AccessStatus
-    var functionJobName = "getAccessStatus"
-}
-
-nonisolated private struct SyncSubscriptionStatusRequest: ParseCloudable {
-    typealias ReturnType = AccessStatus
-    var functionJobName = "syncSubscriptionStatus"
-    let status: String
-    let productId: String?
-    let expiresAt: String?
-    let gracePeriodExpiresAt: String?
-    let autoRenewStatus: Bool?
-    let autoRenewProductId: String?
-    let originalTransactionId: String?
-    let appAccountToken: String?
-}
-
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
 /// All OpenAI calls happen server-side — this type never sees an OpenAI key (spec §4).
 struct ParseScrubPrepService: ScrubPrepServicing {
@@ -204,29 +184,9 @@ struct ParseScrubPrepService: ScrubPrepServicing {
         }
     }
 
-    func getAccessStatus() async throws -> AccessStatus {
-        try await run { try await GetAccessStatusRequest().runFunction() }
-    }
-
-    func syncSubscriptionStatus(_ report: ReportedSubscriptionStatus) async throws -> AccessStatus {
-        try await run {
-            try await SyncSubscriptionStatusRequest(
-                status: report.status,
-                productId: report.productId,
-                expiresAt: report.expiresAt,
-                gracePeriodExpiresAt: report.gracePeriodExpiresAt,
-                autoRenewStatus: report.autoRenewStatus,
-                autoRenewProductId: report.autoRenewProductId,
-                originalTransactionId: report.originalTransactionId,
-                appAccountToken: report.appAccountToken
-            ).runFunction()
-        }
-    }
-
     /// Maps ParseError / networking failures onto the UI-facing error type (spec §20:
-    /// never show raw backend errors to the student). `.unrecognizedCase` and
-    /// `.subscriptionRequired` are the deliberate exceptions — the former's message is
-    /// shown verbatim, the latter triggers the paywall instead of an error alert.
+    /// never show raw backend errors to the student). `.unrecognizedCase` is the
+    /// deliberate exception — its message is shown verbatim.
     @discardableResult
     private func run<T>(_ operation: () async throws -> T) async throws -> T {
         do {
@@ -237,9 +197,6 @@ struct ParseScrubPrepService: ScrubPrepServicing {
             }
             if error.code == .other, error.otherCode == unrecognizedCaseErrorCode {
                 throw ScrubPrepError.unrecognizedCase(message: error.message)
-            }
-            if error.code == .other, error.otherCode == subscriptionRequiredErrorCode {
-                throw ScrubPrepError.subscriptionRequired
             }
             throw ScrubPrepError.server
         } catch {

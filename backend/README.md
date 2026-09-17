@@ -41,7 +41,7 @@ scripts/
 
 | Function | Params | Returns |
 |---|---|---|
-| `generateScrubPrep` | `{ caseDescription }` (requires sign-in) | OR Prep JSON (title, case_summary, why_operating, anatomy, operation_overview, things_to_watch, complications, must_know, likely_questions[]), or a Parse.Error (code 4001, a witty message) if the description isn't recognized as a real procedure, or code 4002 ("subscription required") if the caller has neither an active subscription nor an unused complimentary case — see "Subscriptions & complimentary case" below |
+| `generateScrubPrep` | `{ caseDescription }` (requires sign-in) | OR Prep JSON (title, case_summary, why_operating, anatomy, operation_overview, things_to_watch, complications, must_know, likely_questions[]), or a Parse.Error (code 4001, a witty message) if the description isn't recognized as a real procedure. This function does **not** itself check subscription/complimentary-case eligibility — see "Subscriptions & complimentary case" below |
 | `startPimpSession` | `{ caseDescription, prep, difficulty }` | `{ sessionId, question, progress, done }` |
 | `answerPimpQuestion` | `{ sessionId, answer }` | `{ assessment, feedback, teachingPoint, nextQuestion, done, progress }`, or on the last question `{ ..., done: true, summary: { strong, review, twoMinuteReview } }` |
 | `generateRapidFire` | `{ caseDescription, prep }` | `{ questions: [{ question, answer }] }` (exactly 5) |
@@ -53,8 +53,6 @@ scripts/
 | `deleteCase` | `{ caseId }` (requires sign-in) | `{ success: true }` — also deletes any completed Pimp Me sessions for that case |
 | `listPimpMeSessions` | `{ caseDescription }` (requires sign-in) | `{ sessions: [{ id, caseDescription, difficulty, transcript, summary, completedAt }] }`, every difficulty completed for that case |
 | `savePimpMeSession` | `{ caseDescription, difficulty, transcript, summary }` (requires sign-in) | `{ session: {...} }` — inserts, or overwrites the existing row for that (case, difficulty) |
-| `getAccessStatus` | `{ pendingIdempotencyKey? }` (requires sign-in) | `{ appAccountToken, canGenerateNewCase, hasUsedComplimentaryCase, subscription: {...}, pendingReservationResolved }` — the client's single source of truth for paywall/subscription UI state |
-| `syncSubscriptionStatus` | `{ status, productId?, expiresAt?, gracePeriodExpiresAt?, autoRenewStatus?, autoRenewProductId?, originalTransactionId? }` (requires sign-in) | Records subscription state the client already verified on-device via StoreKit 2, then returns the same shape as `getAccessStatus` |
 
 `difficulty` is one of `easy | typical | tough` (defaults to `typical`). Session length scales with difficulty (4 questions for easy, 5 for typical, 6 for tough).
 
@@ -101,63 +99,62 @@ This prints total estimated cost, a breakdown by Cloud Function and by model, av
 
 Every signed-in user may generate exactly one case for free (their "complimentary case");
 generating any additional case requires an active auto-renewing subscription (two
-products, same access level, different billing durations). This is enforced server-side
-in `generateScrubPrep` — the client's own UI state is only a convenience, never trusted.
+products, same access level, different billing durations: monthly and every 3 months —
+see `ios/ScrubPrep/ScrubPrep/Services/SubscriptionManager.swift`).
 
-**Trust model:** this backend does NOT independently re-verify Apple's cryptographic
-signature on subscription data. It trusts StoreKit 2's own on-device verification
-(`VerificationResult` — real Apple cryptography, just checked on the client rather than
-re-checked here) and has the iOS app report the already-verified transaction's plain
-fields via `syncSubscriptionStatus`. This was a deliberate simplification: an earlier
-version of this feature independently re-verified Apple's signature server-side (needing
-a JWS-verification library, Apple's root certificate, and workarounds for Back4App's
-classic Cloud Code deploy not shipping `node_modules`) — that's more rigorous but is not
-what most comparable subscription apps at this price point do, and the added complexity
-wasn't worth it here. **Accepted tradeoff:** a jailbroken device or a tampered client
-binary could in principle report a fabricated "I'm subscribed" status. It canNOT, however,
-un-set an already-used complimentary flag or otherwise directly write these fields via the
-normal client SDK (see the beforeSave guard below) — that path is blocked regardless.
+**Trust model — this is deliberately a purely client-side gate.** Whether a subscription
+is currently active is determined entirely on-device, by asking StoreKit 2 directly
+(`Transaction.currentEntitlements`, which already reflects Apple-managed renewals,
+cancellations, and billing grace periods) — this backend never sees a receipt, a JWS, or
+any subscription-status report at all, and has **no Cloud Function, database row, App
+Store Server Notifications webhook, or App Store Server API polling** for subscription
+state. This is a deliberate simplification over an earlier version of this feature, which
+went through two more complex designs in turn (independent server-side JWS signature
+verification with Apple's root certificate, then a `_User`-based design where the client
+reported its own StoreKit-verified status for the backend to store and trust) before
+landing here, which needs no backend involvement at all for the "is this account
+currently subscribed" question.
 
-State lives directly on `_User` (see `scripts/setup-user-subscription-fields.js`), not a
-separate Parse class — there's nothing to look up or create, since `request.user` always
-already exists:
+**Accepted tradeoff:** since there is no server-side check, a modified client binary
+could in principle skip its own paywall/entitlement check and call `generateScrubPrep`
+directly without ever having subscribed. This backend does not defend against that — it
+matches how most comparable low-price subscription apps operate, and was an explicit,
+informed choice for this app rather than an oversight.
 
-- `hasUsedComplimentaryCase` (Boolean)
-- `subscriptionStatus` (`none|active|grace_period|billing_retry|expired|revoked`),
-  `subscriptionProductId`, `subscriptionExpiresAt`, `subscriptionGracePeriodExpiresAt`,
-  `subscriptionAutoRenewStatus`, `subscriptionAutoRenewProductId`,
-  `subscriptionOriginalTransactionId`, `subscriptionLastReportedAt` — all set verbatim from
-  what the client reports in `syncSubscriptionStatus`, never computed locally (no adding
-  months to a date, no manually extending access).
+The **only** durable, backend-side state related to any of this is
+`hasUsedComplimentaryCase` (Boolean) on `_User` (see
+`scripts/setup-user-subscription-fields.js`) — whether this account has ever had a case
+saved for free. `saveCase` sets it to `true` (via
+`cloud/scrubPrep/subscriptions.js`'s `markComplimentaryCaseUsed`, a no-op if already true)
+*after* the resulting case is actually saved — not at generation time, so a generation
+that succeeds but is never saved (e.g. the client crashes before calling `saveCase`) never
+costs the student their one free case, and a failed generation never touches the flag at
+all. It is never reset by deleting cases (`deleteCase` does not touch it), so it can't be
+farmed by generating and deleting cases repeatedly.
 
-**Access is always exactly** `subscriptionStatus === "active" || subscriptionStatus === "grace_period"`.
-
-These fields aren't writable by the client SDK despite living on `_User`, whose CLP
+This field isn't writable by the client SDK despite living on `_User`, whose CLP
 intentionally allows authenticated self-update (required for signup/login, and for e.g.
 changing email). `cloud/scrubPrep/subscriptions.js`'s `registerProtectedFieldsGuard`
 installs a `beforeSave` trigger on `_User` that rejects any *non*-Master-Key save touching
-one of these specific fields — allowing normal self-updates (email, etc.) through, and
-(important, and covered by a test) explicitly not blocking the very first signup save,
-since a brand-new `_User` reports every field as "dirty" regardless of what the client
-actually set.
+this field — allowing normal self-updates (email, etc.) through, and (covered by a test)
+explicitly not blocking the very first signup save, since a brand-new `_User` reports
+every field as "dirty" regardless of what the client actually set.
 
-`generateScrubPrep` checks `subscriptions.checkAccess` (active subscription, or
-`!hasUsedComplimentaryCase`) *before* calling OpenAI; `saveCase` sets the flag to `true`
-*after* the resulting case is actually saved via `subscriptions.markComplimentaryCaseUsed`
-(a no-op if already true) — not at generation time, so a generation that succeeds but is
-never saved (e.g. the client crashes before calling `saveCase`) never costs the student
-their one free case, and a failed generation never touches the flag at all.
+The iOS app reads this flag directly off the signed-in user's own `_User` row (a plain
+`fetch()` on `User.current`, via ParseSwift — no dedicated Cloud Function) right before
+deciding whether a *new* case requires the paywall; see
+`HomeViewModel.refreshComplimentaryCaseStatus()`. Because `_User`'s default CLP allows a
+user to read their own row, no schema/CLP change was needed for this.
 
-This is intentionally not a reservation/idempotency-key system — a genuinely concurrent
-double-tap can, at worst, trigger two OpenAI calls before the flag is set, but can never
-result in more than one saved complimentary case (the flag only ever transitions
-false → true, once, in `saveCase`).
-
-There's no App Store Server Notifications V2 (webhook) support and no independent
-App Store Server API polling — neither is needed given the trust model above: the iOS
-client reports its current StoreKit-verified status on every launch/foreground/purchase/
-restore/`Transaction.updates` event, which is sufficient to keep `_User`'s subscription
-fields correct.
+The app's earlier subscription designs also added `appAccountToken`,
+`subscriptionStatus`, `subscriptionProductId`, `subscriptionExpiresAt`,
+`subscriptionGracePeriodExpiresAt`, `subscriptionAutoRenewStatus`,
+`subscriptionAutoRenewProductId`, `subscriptionOriginalTransactionId`, and
+`subscriptionLastReportedAt` columns to `_User`. None of these are read, written, or
+declared anywhere in this codebase anymore — they may still exist as harmless unused
+columns on an already-deployed database. Dropping them is optional cleanup (Back4App's
+Database Browser, or a one-off `PUT /schemas/_User` with `{"__op": "Delete"}` for each
+field) — not required for correctness, since nothing reads or writes them.
 
 Set up the schema once (safe to re-run):
 

@@ -422,12 +422,13 @@ test("generateScrubPrep surfaces a witty, distinctly-coded error for gibberish i
   );
   // A failed generation never touches the complimentary flag (it's only ever set in
   // saveCase, which was never reached here) — eligibility must be untouched.
-  const status = await registry.getAccessStatus({ params: {}, user: owner });
-  assert.equal(status.canGenerateNewCase, true);
-  assert.equal(status.hasUsedComplimentaryCase, false);
+  assert.equal(owner.get("hasUsedComplimentaryCase"), undefined);
 });
 
-test("generateScrubPrep: a new user's first case is complimentary; a second attempt after saving is paywalled", async () => {
+test("generateScrubPrep: saving a case marks the complimentary flag used; this backend does not itself block a later generateScrubPrep call", async () => {
+  // Whether a later attempt is allowed is decided client-side (active subscription, via
+  // StoreKit) — see SubscriptionManager.swift / HomeViewModel.resolvePrep. This backend
+  // only tracks that the free case was used; it does not gate generation on it.
   const owner = await fakeUser();
   responseQueue.push({
     recognized: true,
@@ -446,133 +447,21 @@ test("generateScrubPrep: a new user's first case is complimentary; a second atte
     user: owner,
   });
   assert.equal(prep1.title, "Appendectomy");
-
-  const beforeSave = await registry.getAccessStatus({ params: {}, user: owner });
-  assert.equal(beforeSave.canGenerateNewCase, true, "not marked used until saveCase succeeds");
+  assert.equal(owner.get("hasUsedComplimentaryCase"), undefined, "not marked used until saveCase succeeds");
 
   await registry.saveCase({
     params: { caseDescription: "Appendectomy", prep: prep1 },
     user: owner,
   });
+  assert.equal(owner.get("hasUsedComplimentaryCase"), true);
 
-  const afterSave = await registry.getAccessStatus({ params: {}, user: owner });
-  assert.equal(afterSave.canGenerateNewCase, false);
-  assert.equal(afterSave.hasUsedComplimentaryCase, true);
-
-  await assert.rejects(
-    () => registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner }),
-    (err) => {
-      assert.equal(err.code, 4002);
-      return true;
-    }
-  );
-});
-
-test("generateScrubPrep: saveCase marking the flag used is idempotent across repeated calls", async () => {
-  const owner = await fakeUser();
-  responseQueue.push({
-    recognized: true,
-    title: "First",
-    case_summary: "s",
-    why_operating: ["x"],
-    anatomy: ["x"],
-    operation_overview: ["x"],
-    things_to_watch: ["x"],
-    complications: ["x"],
-    must_know: ["1", "2", "3", "4", "5"],
-    likely_questions: [{ question: "q", answer: "a" }],
-  });
-  const prep1 = await registry.generateScrubPrep({ params: { caseDescription: "First" }, user: owner });
-  await registry.saveCase({ params: { caseDescription: "First", prep: prep1 }, user: owner });
   // Saving again (e.g. a client retry, or reviewing/re-saving the same case later) must
   // not error or otherwise misbehave just because the flag is already set.
-  await registry.saveCase({ params: { caseDescription: "First", prep: prep1 }, user: owner });
-  const status = await registry.getAccessStatus({ params: {}, user: owner });
-  assert.equal(status.hasUsedComplimentaryCase, true);
-});
-
-test("syncSubscriptionStatus stores the client-reported status and unlocks generation for a subscriber", async () => {
-  const owner = await fakeUser();
-  owner.set("hasUsedComplimentaryCase", true); // simulate having already used the free case
-
-  await assert.rejects(
-    () => registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner }),
-    (err) => {
-      assert.equal(err.code, 4002);
-      return true;
-    }
-  );
-
-  const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const synced = await registry.syncSubscriptionStatus({
-    params: {
-      status: "active",
-      productId: "dev.benderapps.ScrubPrep.subscription.monthly",
-      expiresAt: future,
-      autoRenewStatus: true,
-      autoRenewProductId: "dev.benderapps.ScrubPrep.subscription.monthly",
-      originalTransactionId: "orig-123",
-    },
+  await registry.saveCase({
+    params: { caseDescription: "Appendectomy", prep: prep1 },
     user: owner,
   });
-  assert.equal(synced.subscription.isActive, true);
-  assert.equal(synced.canGenerateNewCase, true);
-
-  responseQueue.push({
-    recognized: true,
-    title: "CABG",
-    case_summary: "s",
-    why_operating: ["x"],
-    anatomy: ["x"],
-    operation_overview: ["x"],
-    things_to_watch: ["x"],
-    complications: ["x"],
-    must_know: ["1", "2", "3", "4", "5"],
-    likely_questions: [{ question: "q", answer: "a" }],
-  });
-  const prep = await registry.generateScrubPrep({ params: { caseDescription: "CABG" }, user: owner });
-  assert.equal(prep.title, "CABG");
-});
-
-test("syncSubscriptionStatus rejects an invalid status value", async () => {
-  const owner = await fakeUser();
-  await assert.rejects(
-    () => registry.syncSubscriptionStatus({ params: { status: "not_a_real_status" }, user: owner }),
-    (err) => {
-      assert.equal(err.code, 141);
-      return true;
-    }
-  );
-});
-
-test("syncSubscriptionStatus does not grant access from a transaction belonging to a different account's appAccountToken", async () => {
-  // Reproduces the real bug this was written to fix: a leftover local StoreKit-testing
-  // transaction (or, in production, an unrelated purchase on the same Apple ID) must
-  // never be applied to an account that never made it.
-  const userA = await fakeUser();
-  const userB = await fakeUser();
-
-  const statusA = await registry.getAccessStatus({ params: {}, user: userA });
-  const tokenA = statusA.appAccountToken;
-  assert.ok(tokenA);
-
-  const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  // userB's client reports a transaction carrying userA's appAccountToken (as would
-  // happen if StoreKit handed back a transaction that isn't actually userB's).
-  const synced = await registry.syncSubscriptionStatus({
-    params: { status: "active", productId: "dev.benderapps.ScrubPrep.subscription.monthly", expiresAt: future, appAccountToken: tokenA },
-    user: userB,
-  });
-
-  assert.equal(synced.subscription.isActive, false, "must not have applied someone else's transaction");
-  assert.equal(synced.canGenerateNewCase, true);
-
-  // The rightful owner (userA) reporting with their own matching token still works fine.
-  const syncedA = await registry.syncSubscriptionStatus({
-    params: { status: "active", productId: "dev.benderapps.ScrubPrep.subscription.monthly", expiresAt: future, appAccountToken: tokenA },
-    user: userA,
-  });
-  assert.equal(syncedA.subscription.isActive, true);
+  assert.equal(owner.get("hasUsedComplimentaryCase"), true);
 });
 
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {

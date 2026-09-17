@@ -57,12 +57,6 @@ function sanitizePreviousQuestions(value) {
 // otherCode set to this value on the Swift side (see ParseError.swift's Decodable init).
 const UNRECOGNIZED_CASE_ERROR_CODE = 4001;
 
-// Same custom-code convention as UNRECOGNIZED_CASE_ERROR_CODE — the iOS client checks for
-// this specific code to show the paywall instead of a generic error alert. Thrown by
-// subscriptions.checkAccess (see generateScrubPrep below) when the caller has neither an
-// active subscription nor an unused complimentary case.
-const SUBSCRIPTION_REQUIRED_ERROR_CODE = 4002;
-
 const UNRECOGNIZED_CASE_MESSAGES = [
   "That doesn't look like a real operation. Try again, or I'm telling your chief resident.",
   "I've read every surgical textbook there is, and that's not in any of them. Try again with an actual case.",
@@ -155,19 +149,11 @@ Parse.Cloud.define(
     );
     assertNoPHI(caseDescription);
 
-    // Access is checked BEFORE any AI request — a denial here never touches OpenAI. The
-    // complimentary allowance itself isn't consumed here; see saveCase, which marks it
-    // used only once the resulting case is durably saved (so a failed generation, or one
-    // whose case never gets saved, never costs the student their one free case).
-    try {
-      await subscriptions.checkAccess(user);
-    } catch (err) {
-      if (err instanceof subscriptions.SubscriptionRequiredError) {
-        throw new Parse.Error(SUBSCRIPTION_REQUIRED_ERROR_CODE, err.message);
-      }
-      throw err;
-    }
-
+    // Whether this request is even allowed to reach here (active subscription, or an
+    // unused complimentary case) is decided entirely client-side via StoreKit 2 — see
+    // SubscriptionManager.swift and HomeViewModel.resolvePrep. This backend does not
+    // independently enforce it; see subscriptions.js's file comment for the accepted
+    // tradeoff.
     try {
       return await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
     } catch (err) {
@@ -455,66 +441,6 @@ Parse.Cloud.define(
       summary,
     });
     return { session };
-  })
-);
-
-Parse.Cloud.define(
-  "getAccessStatus",
-  safeHandler(async (request) => {
-    const user = requireUser(request);
-    return subscriptions.getAccessStatus(user);
-  })
-);
-
-const SUBSCRIPTION_STATUS_VALUES = ["none", "active", "grace_period", "billing_retry", "expired", "revoked"];
-
-function parseOptionalDate(value, fieldName) {
-  if (value === undefined || value === null || value === "") return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `${fieldName} must be a valid date.`);
-  }
-  return date;
-}
-
-// The client has already verified this transaction on-device via StoreKit 2's own
-// VerificationResult (real Apple cryptography) — see SubscriptionManager.swift. This
-// backend deliberately does not independently re-verify the signature; it trusts and
-// records what StoreKit already confirmed. See cloud/scrubPrep/subscriptions.js's file
-// comment for the reasoning and the accepted tradeoff.
-Parse.Cloud.define(
-  "syncSubscriptionStatus",
-  safeHandler(async (request) => {
-    const user = requireUser(request);
-    const status = requireNonEmptyString(request.params.status, "status");
-    if (!SUBSCRIPTION_STATUS_VALUES.includes(status)) {
-      throw new Parse.Error(Parse.Error.VALIDATION_ERROR, `status must be one of: ${SUBSCRIPTION_STATUS_VALUES.join(", ")}`);
-    }
-    const productId =
-      typeof request.params.productId === "string" && request.params.productId.trim()
-        ? request.params.productId.trim()
-        : null;
-
-    await subscriptions.applyReportedSubscriptionStatus(user, {
-      status,
-      productId,
-      expiresAt: parseOptionalDate(request.params.expiresAt, "expiresAt"),
-      gracePeriodExpiresAt: parseOptionalDate(request.params.gracePeriodExpiresAt, "gracePeriodExpiresAt"),
-      autoRenewStatus: typeof request.params.autoRenewStatus === "boolean" ? request.params.autoRenewStatus : null,
-      autoRenewProductId:
-        typeof request.params.autoRenewProductId === "string" && request.params.autoRenewProductId.trim()
-          ? request.params.autoRenewProductId.trim()
-          : null,
-      originalTransactionId:
-        typeof request.params.originalTransactionId === "string" && request.params.originalTransactionId.trim()
-          ? request.params.originalTransactionId.trim()
-          : null,
-      appAccountToken:
-        typeof request.params.appAccountToken === "string" && request.params.appAccountToken.trim()
-          ? request.params.appAccountToken.trim()
-          : null,
-    });
-    return subscriptions.getAccessStatus(user);
   })
 );
 

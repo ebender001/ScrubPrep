@@ -20,14 +20,14 @@ struct RootTabView: View {
                 .tabItem { Label("About", systemImage: "info.circle.fill") }
         }
         // Only ever shown once signed in, so this is exactly "refresh on sign-in and on
-        // every subsequent foreground" — the two moments StoreKit/backend state most
-        // needs re-syncing (spec: "App relaunch and foreground refresh").
+        // every subsequent foreground" — the two moments StoreKit's own entitlement state
+        // most needs re-checking.
         .task {
-            await subscriptionManager.refreshAccessStatus()
+            await subscriptionManager.refreshEntitlements()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                Task { await subscriptionManager.refreshAccessStatus() }
+                Task { await subscriptionManager.refreshEntitlements() }
             }
         }
     }

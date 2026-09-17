@@ -1,17 +1,21 @@
 import Combine
 import Foundation
+import ParseSwift
 import SwiftUI
 
 @MainActor
 final class HomeViewModel: ObservableObject {
     @Published var caseDescription: String = ""
     @Published var isGenerating = false
+    // True while `isGenerating` is specifically generating this account's complimentary
+    // (free) case — set right before the actual generatePrep call, once resolvePrep has
+    // confirmed this is a genuinely new case and the free allowance hasn't been used yet.
+    // HomeView uses this to show different loading copy for that one case only.
+    @Published private(set) var isPreparingComplimentaryCase = false
     @Published var errorMessage: String?
-    // Set when the backend rejects a generation attempt because the student has neither
-    // an active subscription nor an unused complimentary case (see
-    // ScrubPrepError.subscriptionRequired) — HomeView shows the paywall instead of the
-    // generic error alert. This is discovered from the backend's own rejection, which
-    // happens before any AI request, not from a client-side guess.
+    // Set when this is a genuinely NEW case (not already in history) and neither
+    // `subscriptionManager.hasActiveSubscription` nor an unused complimentary case allows
+    // it — see resolvePrep. Checked entirely client-side, before any network/AI request.
     @Published var showPaywall = false
     @Published var generatedPrep: ORPrep?
     @Published var navigateToPrep = false
@@ -59,6 +63,10 @@ final class HomeViewModel: ObservableObject {
     private let service: ScrubPrepServicing
     private let historyStore: CaseHistoryStore
     private var generationTask: Task<Void, Never>?
+    // Wired once from HomeView's `.task` — environment objects aren't available inside a
+    // @StateObject's own init. Nil only for the brief window before that first `.task`
+    // runs, or in a preview that never attaches one.
+    private var subscriptionManager: SubscriptionManager?
 
     // Guards against acting on a response that arrives after the user cancelled (or
     // after a newer request superseded it). ParseSwift's public API doesn't expose a
@@ -85,6 +93,13 @@ final class HomeViewModel: ObservableObject {
 
         loadCaseTypes()
         refreshSpecialties()
+    }
+
+    /// Wired once from HomeView's `.task` (environment objects aren't available in a
+    /// @StateObject's own init) — the source of truth for whether a subscription is
+    /// currently active. Cheap/idempotent to call again on every `.task` re-run.
+    func attach(subscriptionManager: SubscriptionManager) {
+        self.subscriptionManager = subscriptionManager
     }
 
     /// Fetches the signed-in user's saved cases from the backend. Failure is silent —
@@ -231,19 +246,22 @@ final class HomeViewModel: ObservableObject {
     /// AI generation.
     private func resolvePrep(onReady: @escaping (ORPrep) -> Void) {
         let trimmed = caseDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, !isGenerating else { return }
 
         errorMessage = nil
         isGenerating = true
+        isPreparingComplimentaryCase = false
 
         let requestID = UUID()
         currentRequestID = requestID
 
         generationTask = Task {
             do {
-                // Already prepared this case? Reuse it — no network/OpenAI hit. Source of
-                // truth is the backend (not a local cache), so this is itself a network
-                // call, just a much cheaper one than actually generating a prep.
+                // Already prepared this case? Reuse it — no network/OpenAI hit, and no
+                // subscription/complimentary check either: reviewing an existing case
+                // must stay free, including after a subscription lapses. Source of truth
+                // is the backend (not a local cache), so this is itself a network call,
+                // just a much cheaper one than actually generating a prep.
                 if let existing = try await historyStore.find(caseDescription: trimmed) {
                     guard !Task.isCancelled, requestID == currentRequestID else { return }
                     try? await historyStore.markReviewed(existing)
@@ -253,22 +271,52 @@ final class HomeViewModel: ObservableObject {
                     return
                 }
 
+                // Only a genuinely NEW case reaches this gate — checked entirely
+                // client-side, before any AI request. An active subscription (verified
+                // on-device via StoreKit — see SubscriptionManager) always allows it; a
+                // non-subscriber needs their complimentary case not yet used, read fresh
+                // off their own `_User` row (see refreshComplimentaryCaseStatus) rather
+                // than a value that might be stale from an earlier launch.
+                if subscriptionManager?.hasActiveSubscription != true {
+                    await refreshComplimentaryCaseStatus()
+                    guard !Task.isCancelled, requestID == currentRequestID else { return }
+                    if hasUsedComplimentaryCase {
+                        isGenerating = false
+                        showPaywall = true
+                        return
+                    }
+                    // Reaching here means: no active subscription, and the complimentary
+                    // case hasn't been used yet — this generation IS the free case.
+                    isPreparingComplimentaryCase = true
+                }
+
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 _ = try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
                 isGenerating = false
+                isPreparingComplimentaryCase = false
                 preparedCaseDescription = trimmed
                 onReady(prep)
             } catch {
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
                 isGenerating = false
-                if case ScrubPrepError.subscriptionRequired = error {
-                    showPaywall = true
-                    return
-                }
+                isPreparingComplimentaryCase = false
                 errorMessage = (error as? LocalizedError)?.errorDescription
                     ?? "Scrub Prep wasn't able to generate your preparation session. Please try again."
             }
+        }
+    }
+
+    // Refreshed fresh (never cached beyond this) right before every gating decision — see
+    // resolvePrep. Reading it directly off the signed-in user's own `_User` row (no
+    // dedicated Cloud Function) reuses data that already exists for account/auth purposes;
+    // see backend/README.md's "Subscriptions & complimentary case" section.
+    private var hasUsedComplimentaryCase = false
+
+    private func refreshComplimentaryCaseStatus() async {
+        guard let current = User.current else { return }
+        if let refreshed = try? await current.fetch() {
+            hasUsedComplimentaryCase = refreshed.hasUsedComplimentaryCase ?? false
         }
     }
 
@@ -288,5 +336,6 @@ final class HomeViewModel: ObservableObject {
         generationTask = nil
         currentRequestID = nil
         isGenerating = false
+        isPreparingComplimentaryCase = false
     }
 }

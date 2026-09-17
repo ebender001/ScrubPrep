@@ -1,13 +1,14 @@
 import StoreKit
 import SwiftUI
 
-/// The paywall — shown when `generateScrubPrep` reports the student needs a subscription
-/// (see `ScrubPrepError.subscriptionRequired`), or opened directly from About/Home for
-/// someone who wants to subscribe proactively. Never mentions the complimentary case —
-/// this screen exists to sell the subscription, not explain the free-case mechanic.
+/// The paywall — shown when `HomeViewModel.resolvePrep` determines (entirely
+/// client-side, before any AI request) that a new case needs a subscription, or opened
+/// directly from About/Home for someone who wants to subscribe proactively. Never
+/// mentions the complimentary case — this screen exists to sell the subscription, not
+/// explain the free-case mechanic.
 ///
-/// `onPurchaseCompleted` is called exactly once, right after the backend confirms an
-/// active entitlement — the presenter (HomeView) uses it to dismiss this sheet and resume
+/// `onPurchaseCompleted` is called exactly once, right after StoreKit confirms an active
+/// entitlement — the presenter (HomeView) uses it to dismiss this sheet and resume
 /// whatever case-generation attempt triggered the paywall, exactly once.
 struct PaywallView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
@@ -252,9 +253,7 @@ struct PaywallView: View {
                         onPurchaseCompleted()
                     } else {
                         purchaseState = .idle
-                        // TEMPORARY: appending diagnostic detail while investigating why
-                        // this shows up — remove once resolved.
-                        errorMessage = "Your purchase went through, but we couldn't confirm it with our server yet. This usually resolves in a moment — try again, or check Manage Subscription in Settings.\n\nDEBUG: \(subscriptionManager.lastSyncDebugDescription ?? "no sync attempted")"
+                        errorMessage = "Your purchase went through, but we're still waiting on confirmation. This usually resolves in a moment — try again, or check Manage Subscription in Settings."
                     }
                 case .pending:
                     purchaseState = .pending

@@ -221,7 +221,6 @@ final class MockScrubPrepService: ScrubPrepServicing {
 
     func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
         try await Task.sleep(nanoseconds: 200_000_000)
-        mockHasUsedComplimentaryCase = true
         let normalized = ScrubCase.normalize(caseDescription)
         if let index = mockCases.firstIndex(where: { ScrubCase.normalize($0.caseDescription) == normalized }) {
             let existing = mockCases[index]
@@ -308,43 +307,6 @@ final class MockScrubPrepService: ScrubPrepServicing {
         )
         mockPimpMeSessions.append(newSession)
         return newSession
-    }
-
-    // MARK: - Subscription/paywall (in-memory only — lets the paywall UI be previewed/dev-
-    // tested without StoreKit or the real backend).
-
-    private var mockHasUsedComplimentaryCase = false
-    private var mockIsSubscribed = false
-    private let mockAppAccountToken = UUID().uuidString
-
-    func getAccessStatus() async throws -> AccessStatus {
-        try await Task.sleep(nanoseconds: 150_000_000)
-        return currentMockAccessStatus()
-    }
-
-    func syncSubscriptionStatus(_ report: ReportedSubscriptionStatus) async throws -> AccessStatus {
-        try await Task.sleep(nanoseconds: 150_000_000)
-        mockIsSubscribed = report.status == "active" || report.status == "grace_period"
-        return currentMockAccessStatus()
-    }
-
-    private func currentMockAccessStatus() -> AccessStatus {
-        AccessStatus(
-            appAccountToken: mockAppAccountToken,
-            canGenerateNewCase: mockIsSubscribed || !mockHasUsedComplimentaryCase,
-            hasUsedComplimentaryCase: mockHasUsedComplimentaryCase,
-            subscription: mockIsSubscribed
-                ? AccessStatus.Subscription(
-                    isActive: true,
-                    status: "active",
-                    productId: "dev.benderapps.ScrubPrep.subscription.monthly",
-                    expiresAt: Date().addingTimeInterval(30 * 24 * 60 * 60),
-                    accessEndsAt: nil,
-                    autoRenewStatus: true,
-                    autoRenewProductId: "dev.benderapps.ScrubPrep.subscription.monthly"
-                )
-                : .none
-        )
     }
 
     private static func questionTarget(for difficulty: PimpDifficulty) -> Int {

@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 /// About screen (spec §1, §15) — informational, account sign-out, and subscription
@@ -106,6 +107,10 @@ struct AboutView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Subscription")
                 .font(.headline)
+            if let planName = currentPlanName {
+                Text(planName)
+                    .font(.subheadline.weight(.medium))
+            }
             Text(subscriptionStatusLine)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -137,33 +142,28 @@ struct AboutView: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
+    // The subscribed product's own StoreKit display name (e.g. "Scrub Prep Pro Monthly")
+    // — nil while products haven't loaded yet or there's no active subscription.
+    private var currentPlanName: String? {
+        guard let productID = subscriptionManager.activeSubscription?.productID else { return nil }
+        return subscriptionManager.products.first { $0.id == productID }?.displayName
+    }
+
     // Never describes a canceled-but-still-valid subscription as "expired" — a canceled
-    // subscription (autoRenewStatus false) that's still within its paid period reads as
-    // "Active until <date>", same as an auto-renewing one reads as "Renews <date>".
+    // subscription (willAutoRenew false) that's still within its paid period reads as
+    // "Active until <date>", same as an auto-renewing one reads as "Renews <date>". There
+    // is no separate "grace period"/"billing retry" display state here: StoreKit's
+    // `Transaction.currentEntitlements` already folds an Apple-managed billing grace
+    // period into the entitlement itself, so this app only ever sees "active" or "not."
     private var subscriptionStatusLine: String {
-        guard let subscription = subscriptionManager.accessStatus?.subscription else {
+        guard let subscription = subscriptionManager.activeSubscription else {
             return "No active subscription."
         }
-        let dateText = { (date: Date?) in
-            date?.formatted(date: .abbreviated, time: .omitted) ?? "soon"
+        let dateText = subscription.expirationDate?.formatted(date: .abbreviated, time: .omitted) ?? "soon"
+        if subscription.willAutoRenew {
+            return "Renews \(dateText)."
         }
-        switch subscription.status {
-        case "active":
-            if subscription.autoRenewStatus == true {
-                return "Renews \(dateText(subscription.expiresAt))."
-            }
-            return "Active until \(dateText(subscription.accessEndsAt)) (auto-renew is off)."
-        case "grace_period":
-            return "There's a problem with your payment method. Access continues until \(dateText(subscription.accessEndsAt)) while Apple retries."
-        case "billing_retry":
-            return "There's a problem with your payment method. Please update it to keep your subscription active."
-        case "expired":
-            return "Your subscription has expired."
-        case "revoked":
-            return "Your subscription was refunded."
-        default:
-            return "No active subscription."
-        }
+        return "Active until \(dateText) (auto-renew is off)."
     }
 
     private func restorePurchases() {
