@@ -27,6 +27,7 @@
 // that specific path is blocked by the beforeSave guard regardless of this tradeoff.
 
 const PROTECTED_USER_FIELDS = [
+  "appAccountToken",
   "hasUsedComplimentaryCase",
   "subscriptionStatus",
   "subscriptionProductId",
@@ -71,16 +72,52 @@ function toIso(date) {
 }
 
 /**
+ * Every user gets a stable random token the first time it's needed, passed to StoreKit 2
+ * as `Product.PurchaseOption.appAccountToken` on purchase and read back (for free, off an
+ * already-verified `Transaction` — no signature decoding needed) when reporting status.
+ * This is NOT a security/cryptographic control (nothing here is signature-verified) — its
+ * only job is disambiguation: preventing an unrelated StoreKit transaction (e.g. a
+ * leftover local-testing purchase from a different Scrub Prep account sharing the same
+ * simulator/device, or a different real account on the same Apple ID) from being applied
+ * to a user who never actually made that purchase. See applyReportedSubscriptionStatus.
+ *
+ * @param {Parse.User} user
+ * @returns {Promise<string>}
+ */
+async function getOrCreateAppAccountToken(user) {
+  const existing = user.get("appAccountToken");
+  if (existing) return existing;
+  const token = require("crypto").randomUUID();
+  user.set("appAccountToken", token);
+  await user.save(null, { useMasterKey: true });
+  return token;
+}
+
+/**
  * Applies a subscription status the client reported after its own StoreKit 2 on-device
  * verification succeeded (see SubscriptionManager.swift) — always overwrites with the
  * latest report (there's no adversarial-ordering concern to guard against once the data
- * is trusted at all; see the file header).
+ * is trusted at all; see the file header). If the report carries an `appAccountToken`
+ * that doesn't match this user's own — meaning the underlying StoreKit transaction
+ * belongs to a different Scrub Prep account — it's ignored entirely rather than applied,
+ * so that transaction can't grant access to someone who never purchased it. This always
+ * ensures the user's own token exists first (via getOrCreateAppAccountToken) rather than
+ * assuming a prior getAccessStatus call already created one — otherwise a user who has
+ * never once fetched their token would fall through the mismatch check entirely. A report
+ * with no token at all is still applied leniently, since the token is a disambiguation
+ * aid, not a trust boundary this app treats as load-bearing.
  *
  * @param {Parse.User} user
- * @param {{ productId?: string, status: string, expiresAt?: Date|null, gracePeriodExpiresAt?: Date|null, autoRenewStatus?: boolean|null, autoRenewProductId?: string|null, originalTransactionId?: string|null }} report
+ * @param {{ productId?: string, status: string, expiresAt?: Date|null, gracePeriodExpiresAt?: Date|null, autoRenewStatus?: boolean|null, autoRenewProductId?: string|null, originalTransactionId?: string|null, appAccountToken?: string|null }} report
  * @param {{ now?: () => Date }} [deps]
+ * @returns {Promise<{ applied: boolean, reason?: string }>}
  */
 async function applyReportedSubscriptionStatus(user, report, deps = {}) {
+  const ownToken = await getOrCreateAppAccountToken(user);
+  if (report.appAccountToken && report.appAccountToken !== ownToken) {
+    return { applied: false, reason: "appAccountTokenMismatch" };
+  }
+
   const now = (deps.now || (() => new Date()))();
   user.set("subscriptionStatus", report.status || "none");
   user.set("subscriptionProductId", report.productId || null);
@@ -91,15 +128,18 @@ async function applyReportedSubscriptionStatus(user, report, deps = {}) {
   user.set("subscriptionOriginalTransactionId", report.originalTransactionId || null);
   user.set("subscriptionLastReportedAt", now);
   await user.save(null, { useMasterKey: true });
+  return { applied: true };
 }
 
 /** @param {Parse.User} user */
-function getAccessStatus(user) {
+async function getAccessStatus(user) {
+  const appAccountToken = await getOrCreateAppAccountToken(user);
   const hasUsedComplimentaryCase = !!user.get("hasUsedComplimentaryCase");
   const active = isEntitlementActive(user);
   const statusLabel = user.get("subscriptionStatus") || "none";
 
   return {
+    appAccountToken,
     canGenerateNewCase: active || !hasUsedComplimentaryCase,
     hasUsedComplimentaryCase,
     subscription: {
@@ -146,6 +186,7 @@ module.exports = {
   SubscriptionRequiredError,
   registerProtectedFieldsGuard,
   isEntitlementActive,
+  getOrCreateAppAccountToken,
   applyReportedSubscriptionStatus,
   getAccessStatus,
   checkAccess,

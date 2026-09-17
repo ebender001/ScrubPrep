@@ -16,6 +16,12 @@ nonisolated struct ReportedSubscriptionStatus: Codable {
     let autoRenewStatus: Bool?
     let autoRenewProductId: String?
     let originalTransactionId: String?
+    /// The `appAccountToken` StoreKit reports on the underlying `Transaction` (read
+    /// directly off the already-verified transaction, no decoding needed) — lets the
+    /// backend reject a transaction that doesn't actually belong to this account. `nil`
+    /// when StoreKit didn't report one (e.g. a transaction predating this app ever
+    /// setting one), in which case the backend applies the report leniently.
+    let appAccountToken: String?
 
     // `nonisolated(unsafe)`: see AccessStatus's identical note.
     nonisolated(unsafe) private static let isoFormatter: ISO8601DateFormatter = {
@@ -31,7 +37,8 @@ nonisolated struct ReportedSubscriptionStatus: Codable {
         gracePeriodExpiresAt: Date?,
         autoRenewStatus: Bool?,
         autoRenewProductId: String?,
-        originalTransactionId: String?
+        originalTransactionId: String?,
+        appAccountToken: String?
     ) {
         self.status = status
         self.productId = productId
@@ -40,5 +47,6 @@ nonisolated struct ReportedSubscriptionStatus: Codable {
         self.autoRenewStatus = autoRenewStatus
         self.autoRenewProductId = autoRenewProductId
         self.originalTransactionId = originalTransactionId
+        self.appAccountToken = appAccountToken
     }
 }

@@ -545,6 +545,36 @@ test("syncSubscriptionStatus rejects an invalid status value", async () => {
   );
 });
 
+test("syncSubscriptionStatus does not grant access from a transaction belonging to a different account's appAccountToken", async () => {
+  // Reproduces the real bug this was written to fix: a leftover local StoreKit-testing
+  // transaction (or, in production, an unrelated purchase on the same Apple ID) must
+  // never be applied to an account that never made it.
+  const userA = await fakeUser();
+  const userB = await fakeUser();
+
+  const statusA = await registry.getAccessStatus({ params: {}, user: userA });
+  const tokenA = statusA.appAccountToken;
+  assert.ok(tokenA);
+
+  const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  // userB's client reports a transaction carrying userA's appAccountToken (as would
+  // happen if StoreKit handed back a transaction that isn't actually userB's).
+  const synced = await registry.syncSubscriptionStatus({
+    params: { status: "active", productId: "dev.benderapps.ScrubPrep.subscription.monthly", expiresAt: future, appAccountToken: tokenA },
+    user: userB,
+  });
+
+  assert.equal(synced.subscription.isActive, false, "must not have applied someone else's transaction");
+  assert.equal(synced.canGenerateNewCase, true);
+
+  // The rightful owner (userA) reporting with their own matching token still works fine.
+  const syncedA = await registry.syncSubscriptionStatus({
+    params: { status: "active", productId: "dev.benderapps.ScrubPrep.subscription.monthly", expiresAt: future, appAccountToken: tokenA },
+    user: userA,
+  });
+  assert.equal(syncedA.subscription.isActive, true);
+});
+
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {
   responseQueue.push({
     questions: Array.from({ length: 5 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` })),

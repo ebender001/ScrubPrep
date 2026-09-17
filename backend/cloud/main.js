@@ -509,6 +509,10 @@ Parse.Cloud.define(
         typeof request.params.originalTransactionId === "string" && request.params.originalTransactionId.trim()
           ? request.params.originalTransactionId.trim()
           : null,
+      appAccountToken:
+        typeof request.params.appAccountToken === "string" && request.params.appAccountToken.trim()
+          ? request.params.appAccountToken.trim()
+          : null,
     });
     return subscriptions.getAccessStatus(user);
   })

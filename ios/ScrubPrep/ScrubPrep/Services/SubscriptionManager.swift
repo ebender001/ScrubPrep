@@ -35,6 +35,7 @@ final class SubscriptionManager: ObservableObject {
 
     private let service: ScrubPrepServicing
     private var updatesTask: Task<Void, Never>?
+    private var cachedAppAccountToken: UUID?
 
     init(service: ScrubPrepServicing? = nil) {
         self.service = service ?? ScrubPrepServiceFactory.make()
@@ -62,11 +63,28 @@ final class SubscriptionManager: ObservableObject {
     /// after any purchase/restore/transaction update. The UI should always read
     /// `accessStatus`, never assume success just because a purchase call returned.
     func refreshAccessStatus() async {
-        accessStatus = try? await service.getAccessStatus()
+        if let status = try? await service.getAccessStatus() {
+            accessStatus = status
+            cachedAppAccountToken = UUID(uuidString: status.appAccountToken)
+        }
+    }
+
+    /// This account's own `appAccountToken` — fetching it (via `getAccessStatus`, which
+    /// lazily creates one server-side) if it isn't already cached. Passed to StoreKit on
+    /// purchase, and included when reporting any transaction, purely as a disambiguation
+    /// aid (see AccessStatus's doc comment) — not a cryptographic control.
+    private func resolvedAppAccountToken() async -> UUID? {
+        if let cachedAppAccountToken { return cachedAppAccountToken }
+        await refreshAccessStatus()
+        return cachedAppAccountToken
     }
 
     func purchase(_ product: Product) async throws -> PurchaseOutcome {
-        let result = try await product.purchase()
+        var options: Set<Product.PurchaseOption> = []
+        if let token = await resolvedAppAccountToken() {
+            options.insert(.appAccountToken(token))
+        }
+        let result = try await product.purchase(options: options)
         switch result {
         case .success(let verification):
             try await reportAndFinish(verification, productID: product.id)
@@ -120,7 +138,8 @@ final class SubscriptionManager: ObservableObject {
             gracePeriodExpiresAt: renewal?.gracePeriodExpiresAt,
             autoRenewStatus: renewal?.autoRenewStatus,
             autoRenewProductId: renewal?.autoRenewProductId,
-            originalTransactionId: String(transaction.originalID)
+            originalTransactionId: String(transaction.originalID),
+            appAccountToken: transaction.appAccountToken?.uuidString
         )
         _ = try await service.syncSubscriptionStatus(report)
         await transaction.finish()

@@ -62,6 +62,13 @@ nonisolated struct AccessStatus: Codable, Equatable {
         )
     }
 
+    /// A stable per-account UUID, generated server-side the first time it's needed —
+    /// passed to StoreKit 2 as `Product.PurchaseOption.appAccountToken` on purchase, and
+    /// checked (server-side, on report) to keep an unrelated StoreKit transaction — e.g. a
+    /// leftover local-testing purchase from a different Scrub Prep account sharing the
+    /// same simulator — from being applied to this account. Not a cryptographic control,
+    /// just disambiguation; see subscriptions.js's file comment.
+    let appAccountToken: String
     let canGenerateNewCase: Bool
     let hasUsedComplimentaryCase: Bool
     let subscription: Subscription

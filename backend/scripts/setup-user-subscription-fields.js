@@ -14,6 +14,7 @@
 const { loadContext, restRequest } = require("./lib/parseRest");
 
 const FIELDS = {
+  appAccountToken: { type: "String" },
   hasUsedComplimentaryCase: { type: "Boolean" },
   subscriptionStatus: { type: "String" },
   subscriptionProductId: { type: "String" },

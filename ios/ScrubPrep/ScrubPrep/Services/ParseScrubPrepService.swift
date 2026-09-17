@@ -132,6 +132,7 @@ nonisolated private struct SyncSubscriptionStatusRequest: ParseCloudable {
     let autoRenewStatus: Bool?
     let autoRenewProductId: String?
     let originalTransactionId: String?
+    let appAccountToken: String?
 }
 
 /// Talks to the real Back4App Cloud Functions via the Parse Swift SDK.
@@ -216,7 +217,8 @@ struct ParseScrubPrepService: ScrubPrepServicing {
                 gracePeriodExpiresAt: report.gracePeriodExpiresAt,
                 autoRenewStatus: report.autoRenewStatus,
                 autoRenewProductId: report.autoRenewProductId,
-                originalTransactionId: report.originalTransactionId
+                originalTransactionId: report.originalTransactionId,
+                appAccountToken: report.appAccountToken
             ).runFunction()
         }
     }
