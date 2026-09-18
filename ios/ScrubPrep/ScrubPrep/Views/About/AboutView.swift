@@ -9,6 +9,7 @@ struct AboutView: View {
     @State private var showPaywall = false
     @State private var isRestoring = false
     @State private var restoreResultMessage: String?
+    @State private var showSignOutConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -29,7 +30,7 @@ struct AboutView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         Button("Sign Out", role: .destructive) {
-                            Task { await authViewModel.logOut() }
+                            showSignOutConfirmation = true
                         }
                         .font(.subheadline.weight(.medium))
                     }
@@ -85,6 +86,16 @@ struct AboutView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(restoreResultMessage ?? "")
+            }
+            .confirmationDialog(
+                "Sign out of Scrub Prep?",
+                isPresented: $showSignOutConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Sign Out", role: .destructive) {
+                    Task { await authViewModel.logOut() }
+                }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }
