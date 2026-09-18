@@ -138,9 +138,13 @@ struct PaywallView: View {
             }
         }
         .task {
-            if subscriptionManager.products.isEmpty {
-                await subscriptionManager.loadProducts()
-            }
+            // Always refetch, not just when empty — `SubscriptionManager` lives for the
+            // whole app process, so "only fetch if empty" would mean a plan that becomes
+            // available after launch (e.g. newly cleared "Prepare for Submission" in App
+            // Store Connect) never appears until a full force-quit. Product.products(for:)
+            // is a fast local App Store Storefront call, not an expensive network round
+            // trip — cheap enough to repeat every time this sheet appears.
+            await subscriptionManager.loadProducts()
         }
         // Falls back to whatever plan actually loaded if the preferred default
         // (quarterly) isn't among the loaded products — e.g. it's still stuck in
