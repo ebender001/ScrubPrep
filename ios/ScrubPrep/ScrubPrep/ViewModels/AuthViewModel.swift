@@ -33,6 +33,15 @@ final class AuthViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            // [weak self] here (not on the Task below) is what actually avoids a leak —
+            // NotificationCenter retains this closure until removeObserver runs in
+            // deinit, so a strong self capture would keep AuthViewModel alive forever
+            // (deinit, which calls removeObserver, would never fire). Resolving to a
+            // strong local constant now, before creating the Task, is required by Swift 6:
+            // capturing the weak var itself across a concurrency boundary isn't allowed
+            // ("Reference to captured var 'self' in concurrently-executing code"). The Task
+            // then only holds that strong reference briefly, for its own short lifetime.
+            guard let self else { return }
             // `queue: .main` guarantees this runs on the main thread at runtime, but the
             // closure's type itself isn't recognized as @MainActor-isolated by the
             // compiler, so calling straight into handleInvalidSession() (isolated since
@@ -40,7 +49,7 @@ final class AuthViewModel: ObservableObject {
             // in ... } makes the isolation explicit instead of relying on that unproven
             // guarantee.
             Task { @MainActor in
-                self?.handleInvalidSession()
+                self.handleInvalidSession()
             }
         }
     }
