@@ -134,7 +134,17 @@ struct SignInView: View {
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { authViewModel.errorMessage != nil },
-            set: { if !$0 { authViewModel.errorMessage = nil } }
+            // Deferred via Task rather than set synchronously: this setter runs as part
+            // of the alert's dismissal, which SwiftUI can invoke while still inside a
+            // view-update pass — mutating an ObservableObject's @Published property
+            // (which fires objectWillChange) synchronously there is undefined behavior
+            // ("Publishing changes from within view updates is not allowed"). Hopping to
+            // the next run loop turn breaks that synchronous chain.
+            set: { newValue in
+                if !newValue {
+                    Task { authViewModel.errorMessage = nil }
+                }
+            }
         )
     }
 

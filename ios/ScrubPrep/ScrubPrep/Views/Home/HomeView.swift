@@ -134,7 +134,15 @@ struct HomeView: View {
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
+            // Deferred via Task — see SignInView.errorBinding's identical comment: this
+            // setter can run while SwiftUI is still inside a view-update pass, and
+            // mutating an ObservableObject's @Published property synchronously there is
+            // undefined behavior.
+            set: { newValue in
+                if !newValue {
+                    Task { viewModel.errorMessage = nil }
+                }
+            }
         )
     }
 
