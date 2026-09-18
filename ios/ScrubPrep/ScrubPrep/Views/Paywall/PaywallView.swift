@@ -142,6 +142,16 @@ struct PaywallView: View {
                 await subscriptionManager.loadProducts()
             }
         }
+        // Falls back to whatever plan actually loaded if the preferred default
+        // (quarterly) isn't among the loaded products — e.g. it's still stuck in
+        // "Prepare for Submission" in App Store Connect and Apple silently omitted it
+        // rather than erroring. Without this, Subscribe stays permanently disabled and
+        // nothing appears selected whenever only one plan is available.
+        .onChange(of: subscriptionManager.products.map(\.id), initial: true) { _, ids in
+            if !ids.contains(selectedProductID), let fallback = sortedProducts.first?.id {
+                selectedProductID = fallback
+            }
+        }
     }
 
     private var selectedProduct: Product? {
