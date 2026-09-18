@@ -19,10 +19,41 @@ final class AuthViewModel: ObservableObject {
     /// transition into RootTabView, then clears this.
     @Published var showAccountCreatedAlert = false
 
+    private var invalidSessionObserver: NSObjectProtocol?
+
     /// ParseSwift restores a logged-in user from the Keychain synchronously at launch —
-    /// no network call needed to know whether someone's already signed in.
+    /// no network call needed to know whether someone's already signed in. Note: the
+    /// Keychain survives app deletion (unlike UserDefaults/the app container), so this
+    /// can restore a session token that's no longer valid server-side — see
+    /// `invalidSessionDetected` below for how that's recovered from.
     init() {
         currentUser = User.current
+        invalidSessionObserver = NotificationCenter.default.addObserver(
+            forName: .invalidSessionDetected,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleInvalidSession()
+        }
+    }
+
+    deinit {
+        if let invalidSessionObserver {
+            NotificationCenter.default.removeObserver(invalidSessionObserver)
+        }
+    }
+
+    /// Posted by ParseScrubPrepService whenever any backend call comes back with an
+    /// invalid session token — Parse Server rejects every request carrying one,
+    /// regardless of whether the specific function requires sign-in, so without this
+    /// the app would sit signed-in-but-broken forever (every fetch silently empty) with
+    /// no way to recover short of a manual sign-out. Drops straight back to SignInView;
+    /// the actual Keychain/session cleanup doesn't need to block that transition.
+    private func handleInvalidSession() {
+        guard currentUser != nil else { return }
+        currentUser = nil
+        errorMessage = "Your session expired. Please sign in again."
+        Task { try? await User.logout() }
     }
 
     /// `email` comes from `ASAuthorizationAppleIDCredential.email`, which Apple only

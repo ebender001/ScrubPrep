@@ -198,9 +198,23 @@ struct ParseScrubPrepService: ScrubPrepServicing {
             if error.code == .other, error.otherCode == unrecognizedCaseErrorCode {
                 throw ScrubPrepError.unrecognizedCase(message: error.message)
             }
+            // A stale session token (e.g. restored from the Keychain after the app was
+            // deleted and reinstalled — Keychain items survive app deletion, unlike
+            // UserDefaults) makes Parse Server reject EVERY request carrying it, even
+            // calls to functions that don't themselves require sign-in. Without this,
+            // the app would sit signed-in-but-broken forever (every fetch silently
+            // empty) with no way to recover short of manually signing out. AuthViewModel
+            // observes this to force a sign-out back to SignInView.
+            if error.code == .invalidSessionToken {
+                NotificationCenter.default.post(name: .invalidSessionDetected, object: nil)
+            }
             throw ScrubPrepError.server
         } catch {
             throw ScrubPrepError.network
         }
     }
+}
+
+extension Notification.Name {
+    static let invalidSessionDetected = Notification.Name("invalidSessionDetected")
 }
