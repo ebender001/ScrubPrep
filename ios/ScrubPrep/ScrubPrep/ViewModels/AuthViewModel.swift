@@ -33,7 +33,15 @@ final class AuthViewModel: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.handleInvalidSession()
+            // `queue: .main` guarantees this runs on the main thread at runtime, but the
+            // closure's type itself isn't recognized as @MainActor-isolated by the
+            // compiler, so calling straight into handleInvalidSession() (isolated since
+            // AuthViewModel is @MainActor) can't be statically proven safe. Task { @MainActor
+            // in ... } makes the isolation explicit instead of relying on that unproven
+            // guarantee.
+            Task { @MainActor in
+                self?.handleInvalidSession()
+            }
         }
     }
 
