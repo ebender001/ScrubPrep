@@ -24,7 +24,9 @@ struct PaywallView: View {
         case restoring
     }
 
-    @State private var selectedProductID = SubscriptionManager.monthlyProductID
+    // Defaults to the better-value plan (see bestValueChip) — leading with, and
+    // pre-selecting, the recommended option is standard paywall practice.
+    @State private var selectedProductID = SubscriptionManager.quarterlyProductID
     @State private var purchaseState: PurchaseState = .idle
     @State private var errorMessage: String?
 
@@ -146,9 +148,14 @@ struct PaywallView: View {
         subscriptionManager.products.first { $0.id == selectedProductID }
     }
 
+    // The better-value plan leads — matches it also being the default selection (above)
+    // and carrying the "Best Value" chip (below), rather than an arbitrary shortest-first
+    // ordering that would visually disagree with which one is actually recommended.
     private var sortedProducts: [Product] {
         subscriptionManager.products.sorted { lhs, rhs in
-            (lhs.subscription?.subscriptionPeriod.value ?? 0) < (rhs.subscription?.subscriptionPeriod.value ?? 0)
+            if lhs.id == SubscriptionManager.quarterlyProductID { return true }
+            if rhs.id == SubscriptionManager.quarterlyProductID { return false }
+            return (lhs.subscription?.subscriptionPeriod.value ?? 0) < (rhs.subscription?.subscriptionPeriod.value ?? 0)
         }
     }
 
@@ -167,9 +174,14 @@ struct PaywallView: View {
         } label: {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(planTitle(for: product))
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text(planTitle(for: product))
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        if product.id == SubscriptionManager.quarterlyProductID {
+                            bestValueChip
+                        }
+                    }
                     if let period = product.subscription?.subscriptionPeriod {
                         Text("\(product.displayPrice) \(billingLabel(for: period))")
                             .font(.subheadline)
@@ -191,6 +203,16 @@ struct PaywallView: View {
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
+    }
+
+    private var bestValueChip: some View {
+        Text("BEST VALUE")
+            .font(.system(size: 10, weight: .bold))
+            .tracking(0.4)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Color.accentColor, in: Capsule())
+            .foregroundStyle(.white)
     }
 
     // "Monthly" / "Every 3 months" per the product's own StoreKit period — never a
