@@ -48,21 +48,16 @@ struct CaseEntryCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            ZStack(alignment: .topLeading) {
-                if caseDescription.isEmpty {
-                    Text(isSpecialtySelected ? "Enter an operation or case" : "Select a specialty above first")
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                }
-                TextEditor(text: $caseDescription)
-                    .frame(minHeight: 70)
-                    .focused($isFocused)
-                    .scrollContentBackground(.hidden)
-                    .disabled(!isSpecialtySelected)
-            }
+            TextField(
+                isSpecialtySelected ? "Enter an operation or case" : "Select a specialty above first",
+                text: $caseDescription,
+                axis: .vertical
+            )
+            .lineLimit(3...)
+            .focused($isFocused)
+            .disabled(!isSpecialtySelected)
             .padding(8)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
             .opacity(isSpecialtySelected ? 1 : 0.6)
 
             // Reads as helpful guidance, not a second heading — secondary color and a
@@ -93,7 +88,7 @@ struct CaseEntryCard: View {
             .disabled(!isSpecialtySelected || caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 20))
     }
 }
 

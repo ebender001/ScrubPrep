@@ -4,12 +4,13 @@ import SwiftUI
 /// About screen (spec §1, §15) — informational, account sign-out, and subscription
 /// management.
 struct AboutView: View {
-    @EnvironmentObject private var authViewModel: AuthViewModel
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @Environment(AuthViewModel.self) private var authViewModel
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @State private var showPaywall = false
     @State private var isRestoring = false
     @State private var restoreResultMessage: String?
     @State private var showSignOutConfirmation = false
+    @State private var isShowingRestoreResult = false
 
     var body: some View {
         NavigationStack {
@@ -36,7 +37,7 @@ struct AboutView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(.thinMaterial, in: .rect(cornerRadius: 16))
 
                     subscriptionCard
 
@@ -48,7 +49,7 @@ struct AboutView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(.thinMaterial, in: .rect(cornerRadius: 16))
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Creator")
@@ -61,7 +62,7 @@ struct AboutView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(.thinMaterial, in: .rect(cornerRadius: 16))
 
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Contact")
@@ -74,7 +75,7 @@ struct AboutView: View {
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(.thinMaterial, in: .rect(cornerRadius: 16))
                 }
                 .padding()
             }
@@ -82,10 +83,13 @@ struct AboutView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
-            .alert("Restore Purchases", isPresented: restoreResultBinding) {
+            .alert("Restore Purchases", isPresented: $isShowingRestoreResult) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(restoreResultMessage ?? "")
+            }
+            .onChange(of: restoreResultMessage) { _, newValue in
+                isShowingRestoreResult = newValue != nil
             }
             .confirmationDialog(
                 "Sign out of Scrub Prep?",
@@ -98,13 +102,6 @@ struct AboutView: View {
                 Button("Cancel", role: .cancel) {}
             }
         }
-    }
-
-    private var restoreResultBinding: Binding<Bool> {
-        Binding(
-            get: { restoreResultMessage != nil },
-            set: { if !$0 { restoreResultMessage = nil } }
-        )
     }
 
     private var accountDescription: String {
@@ -150,7 +147,7 @@ struct AboutView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 
     // The subscribed product's own StoreKit display name (e.g. "Scrub Prep Pro Monthly")
@@ -204,6 +201,6 @@ struct AboutView: View {
 
 #Preview {
     AboutView()
-        .environmentObject(AuthViewModel())
-        .environmentObject(SubscriptionManager())
+        .environment(AuthViewModel())
+        .environment(SubscriptionManager())
 }

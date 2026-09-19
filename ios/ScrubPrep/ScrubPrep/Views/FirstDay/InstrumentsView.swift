@@ -238,7 +238,7 @@ struct InstrumentsView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 
     @ViewBuilder
@@ -302,7 +302,7 @@ private struct InstrumentDetailSheet: View {
                             .resizable()
                             .scaledToFit()
                             .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .clipShape(.rect(cornerRadius: 16))
                     }
                 }
                 Text(instrument.name)
@@ -333,15 +333,15 @@ private struct InstrumentAttributionView: View {
     let attribution: InstrumentAttribution
 
     var body: some View {
+        let prefix = Text("Image courtesy of ")
+            .foregroundStyle(.secondary)
+        let sourceName = Text(attribution.sourceName)
+            .fontWeight(.semibold)
+            .foregroundStyle(.primary)
+
         VStack(alignment: .leading, spacing: 2) {
-            (
-                Text("Image courtesy of ")
-                    .foregroundStyle(.secondary)
-                + Text(attribution.sourceName)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-            )
-            .font(.footnote)
+            Text("\(prefix)\(sourceName)")
+                .font(.footnote)
 
             if attribution.usedWithPermission || attribution.productURL != nil {
                 HStack(spacing: 4) {

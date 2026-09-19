@@ -10,7 +10,7 @@ struct SignInView: View {
         case logIn
     }
 
-    @EnvironmentObject private var authViewModel: AuthViewModel
+    @Environment(AuthViewModel.self) private var authViewModel
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var mode: Mode = .logIn
@@ -18,6 +18,7 @@ struct SignInView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var infoMessage: String?
+    @State private var isShowingError = false
 
     var body: some View {
         ScrollView {
@@ -53,18 +54,18 @@ struct SignInView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .padding()
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
 
                     SecureField("Password", text: $password)
                         .textContentType(mode == .signUp ? .newPassword : .password)
                         .padding()
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
 
                     if mode == .signUp {
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textContentType(.newPassword)
                             .padding()
-                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
 
                         if !confirmPassword.isEmpty && confirmPassword != password {
                             Text("Passwords don't match.")
@@ -118,10 +119,13 @@ struct SignInView: View {
             }
             .padding()
         }
-        .alert("Couldn't sign in", isPresented: errorBinding) {
+        .alert("Couldn't sign in", isPresented: $isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(authViewModel.errorMessage ?? "")
+        }
+        .onChange(of: authViewModel.errorMessage) { _, newValue in
+            isShowingError = newValue != nil
         }
     }
 
@@ -129,23 +133,6 @@ struct SignInView: View {
         guard !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !password.isEmpty else { return false }
         guard mode == .signUp else { return true }
         return password == confirmPassword
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { authViewModel.errorMessage != nil },
-            // Deferred via Task rather than set synchronously: this setter runs as part
-            // of the alert's dismissal, which SwiftUI can invoke while still inside a
-            // view-update pass — mutating an ObservableObject's @Published property
-            // (which fires objectWillChange) synchronously there is undefined behavior
-            // ("Publishing changes from within view updates is not allowed"). Hopping to
-            // the next run loop turn breaks that synchronous chain.
-            set: { newValue in
-                if !newValue {
-                    Task { authViewModel.errorMessage = nil }
-                }
-            }
-        )
     }
 
     private func submit() async {
@@ -187,5 +174,5 @@ struct SignInView: View {
 
 #Preview {
     SignInView()
-        .environmentObject(AuthViewModel())
+        .environment(AuthViewModel())
 }

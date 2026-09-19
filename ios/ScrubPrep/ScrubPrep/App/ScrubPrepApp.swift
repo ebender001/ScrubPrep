@@ -10,11 +10,11 @@ import ParseSwift
 
 @main
 struct ScrubPrepApp: App {
-    @StateObject private var authViewModel = AuthViewModel()
+    @State private var authViewModel = AuthViewModel()
     // Owns the StoreKit 2 transaction listener for the app's whole lifetime (see its own
     // doc comment) — created once here rather than per-view, since transactions can
     // arrive at any time regardless of which screen is showing.
-    @StateObject private var subscriptionManager = SubscriptionManager()
+    @State private var subscriptionManager = SubscriptionManager()
 
     init() {
         // Harmless to initialize even in mock mode / with a placeholder Client Key —
@@ -38,8 +38,8 @@ struct ScrubPrepApp: App {
                     SignInView()
                 }
             }
-            .environmentObject(authViewModel)
-            .environmentObject(subscriptionManager)
+            .environment(authViewModel)
+            .environment(subscriptionManager)
             .alert("Account Created", isPresented: $authViewModel.showAccountCreatedAlert) {
                 Button("OK", role: .cancel) {}
             } message: {

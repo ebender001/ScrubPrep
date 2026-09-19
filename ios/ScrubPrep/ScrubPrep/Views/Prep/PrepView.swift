@@ -48,7 +48,7 @@ struct PrepView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 
     private var actionButtons: some View {

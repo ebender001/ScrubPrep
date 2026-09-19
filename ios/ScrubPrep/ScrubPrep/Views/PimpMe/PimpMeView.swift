@@ -5,22 +5,26 @@ import SwiftUI
 /// difficulty can only be completed once per case — completed ones are locked and shown
 /// with a checkmark; tapping one reviews its saved transcript instead of restarting.
 struct PimpMeView: View {
-    @StateObject private var viewModel: PimpMeViewModel
+    @State private var viewModel: PimpMeViewModel
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isAnswerFocused: Bool
+    @State private var isShowingError = false
 
     init(caseDescription: String, prep: ORPrep) {
-        _viewModel = StateObject(wrappedValue: PimpMeViewModel(caseDescription: caseDescription, prep: prep))
+        _viewModel = State(wrappedValue: PimpMeViewModel(caseDescription: caseDescription, prep: prep))
     }
 
     var body: some View {
         content
             .navigationTitle("Pimp Me")
             .navigationBarTitleDisplayMode(.inline)
-            .alert("Couldn't continue", isPresented: errorBinding) {
+            .alert("Couldn't continue", isPresented: $isShowingError) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(viewModel.errorMessage ?? "")
+            }
+            .onChange(of: viewModel.errorMessage) { _, newValue in
+                isShowingError = newValue != nil
             }
     }
 
@@ -45,13 +49,6 @@ struct PimpMeView: View {
         case .reviewingTranscript(let level, let transcript, let summary):
             transcriptView(difficulty: level, transcript: transcript, summary: summary)
         }
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )
     }
 
     // MARK: - Difficulty picker
@@ -127,7 +124,7 @@ struct PimpMeView: View {
             .padding()
             .background(
                 rowBackground(isCompleted: isCompleted, isSelected: isSelected),
-                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                in: .rect(cornerRadius: 12)
             )
         }
         .buttonStyle(.plain)
@@ -193,27 +190,18 @@ struct PimpMeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 
     private var answerInput: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack(alignment: .topLeading) {
-                if viewModel.answerText.isEmpty {
-                    Text("Type your answer")
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                }
-                TextEditor(text: $viewModel.answerText)
-                    .frame(minHeight: 90)
-                    .focused($isAnswerFocused)
-                    .scrollContentBackground(.hidden)
-                    .disabled(viewModel.isSubmitting)
-                    .autocorrectionDisabled()
-            }
-            .padding(8)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            TextField("Type your answer", text: $viewModel.answerText, axis: .vertical)
+                .lineLimit(4...)
+                .focused($isAnswerFocused)
+                .disabled(viewModel.isSubmitting)
+                .autocorrectionDisabled()
+                .padding(8)
+                .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
 
             Button {
                 isAnswerFocused = false
@@ -267,7 +255,7 @@ struct PimpMeView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 
     // MARK: - Summary

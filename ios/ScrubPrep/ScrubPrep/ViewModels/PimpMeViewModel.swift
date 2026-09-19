@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 /// Drives an interactive Pimp Me session: difficulty selection, then one question at a
@@ -6,7 +5,8 @@ import Foundation
 /// only be completed once per case — once done it's locked from restarting and instead
 /// shows its saved transcript (see PimpMeSessionStore).
 @MainActor
-final class PimpMeViewModel: ObservableObject {
+@Observable
+final class PimpMeViewModel {
     enum Phase: Equatable {
         case pickingDifficulty
         case starting
@@ -38,30 +38,30 @@ final class PimpMeViewModel: ObservableObject {
     let caseDescription: String
     let prep: ORPrep
 
-    @Published var difficulty: PimpDifficulty = .typical
-    @Published var phase: Phase = .pickingDifficulty
-    @Published var currentQuestion: String?
-    @Published var progress: PimpProgress?
-    @Published var answerText: String = ""
-    @Published var isSubmitting = false
-    @Published var errorMessage: String?
+    var difficulty: PimpDifficulty = .typical
+    var phase: Phase = .pickingDifficulty
+    var currentQuestion: String?
+    var progress: PimpProgress?
+    var answerText: String = ""
+    var isSubmitting = false
+    var errorMessage: String?
 
     /// The question/answer/feedback just submitted — shown during `.reviewingFeedback`.
-    @Published private(set) var lastTurn: PimpTurn?
+    private(set) var lastTurn: PimpTurn?
     /// Every completed turn this session, oldest first.
-    @Published private(set) var history: [PimpTurn] = []
+    private(set) var history: [PimpTurn] = []
     /// Set once the final question's feedback comes back, while that feedback is still
     /// being shown — the session only actually completes (and gets saved) once the
     /// student taps through past it. Lets the last question's feedback card display
     /// like every other, instead of jumping straight to the summary.
-    @Published private(set) var pendingSummary: PimpSummary?
+    private(set) var pendingSummary: PimpSummary?
     /// Difficulties already completed for this case, across all sessions ever taken —
     /// drives the "locked, tap to review" state on the difficulty picker.
-    @Published private(set) var completedDifficulties: Set<PimpDifficulty> = []
+    private(set) var completedDifficulties: Set<PimpDifficulty> = []
     /// True until the initial fetch of completed difficulties finishes — the difficulty
     /// picker waits for this so it doesn't flash "everything unlocked" for a moment
     /// before locking the ones already completed.
-    @Published private(set) var isLoadingCompletedDifficulties = true
+    private(set) var isLoadingCompletedDifficulties = true
 
     private let service: ScrubPrepServicing
     private let sessionStore: PimpMeSessionStore

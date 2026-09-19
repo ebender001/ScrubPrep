@@ -4,11 +4,11 @@ import SwiftUI
 /// time — tap to reveal the answer, then advance. No grading, no lengthy explanations,
 /// just a fast self-test in the last two minutes before scrubbing in.
 struct RapidFireView: View {
-    @StateObject private var viewModel: RapidFireViewModel
+    @State private var viewModel: RapidFireViewModel
     @Environment(\.dismiss) private var dismiss
 
     init(caseDescription: String, prep: ORPrep) {
-        _viewModel = StateObject(wrappedValue: RapidFireViewModel(caseDescription: caseDescription, prep: prep))
+        _viewModel = State(wrappedValue: RapidFireViewModel(caseDescription: caseDescription, prep: prep))
     }
 
     var body: some View {
@@ -56,7 +56,7 @@ struct RapidFireView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(.thinMaterial, in: .rect(cornerRadius: 16))
                 .animation(.easeInOut(duration: 0.2), value: viewModel.isAnswerRevealed)
 
                 if viewModel.isAnswerRevealed {

@@ -11,7 +11,7 @@ import SwiftUI
 /// entitlement — the presenter (HomeView) uses it to dismiss this sheet and resume
 /// whatever case-generation attempt triggered the paywall, exactly once.
 struct PaywallView: View {
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(\.dismiss) private var dismiss
 
     var onPurchaseCompleted: () -> Void = {}
@@ -63,7 +63,7 @@ struct PaywallView: View {
                         }
                         .padding()
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(.thinMaterial, in: .rect(cornerRadius: 16))
                     } else {
                         planOptions
 
@@ -209,7 +209,7 @@ struct PaywallView: View {
             }
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(.thinMaterial, in: .rect(cornerRadius: 16))
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
@@ -325,5 +325,5 @@ struct PaywallView: View {
 
 #Preview {
     PaywallView()
-        .environmentObject(SubscriptionManager())
+        .environment(SubscriptionManager())
 }
