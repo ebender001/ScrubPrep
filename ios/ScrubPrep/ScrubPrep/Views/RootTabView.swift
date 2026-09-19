@@ -1,23 +1,32 @@
 import SwiftUI
 
+private enum RootTab: Hashable {
+    case home, cases, learn, about
+}
+
 /// Bottom tab bar: Home | Cases | Learn | About (spec §3).
 struct RootTabView: View {
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab: RootTab = .home
 
     var body: some View {
-        TabView {
-            HomeView()
-                .tabItem { Label("Home", systemImage: "house.fill") }
+        TabView(selection: $selectedTab) {
+            Tab("Home", systemImage: "house.fill", value: RootTab.home) {
+                HomeView()
+            }
 
-            CasesListView()
-                .tabItem { Label("Cases", systemImage: "list.bullet.clipboard") }
+            Tab("Cases", systemImage: "list.bullet.clipboard", value: RootTab.cases) {
+                CasesListView()
+            }
 
-            LearnView()
-                .tabItem { Label("Learn", systemImage: "book.fill") }
+            Tab("Learn", systemImage: "book.fill", value: RootTab.learn) {
+                LearnView()
+            }
 
-            AboutView()
-                .tabItem { Label("About", systemImage: "info.circle.fill") }
+            Tab("About", systemImage: "info.circle.fill", value: RootTab.about) {
+                AboutView()
+            }
         }
         // Only ever shown once signed in, so this is exactly "refresh on sign-in and on
         // every subsequent foreground" — the two moments StoreKit's own entitlement state
@@ -35,6 +44,6 @@ struct RootTabView: View {
 
 #Preview {
     RootTabView()
-        .environmentObject(AuthViewModel())
-        .environmentObject(SubscriptionManager())
+        .environment(AuthViewModel())
+        .environment(SubscriptionManager())
 }

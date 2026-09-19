@@ -20,60 +20,15 @@ struct PrepView: View {
                 SectionCard(title: "Know these 5 things", systemImage: "star.fill", items: prep.mustKnow)
 
                 if !prep.likelyQuestions.isEmpty {
-                    likelyQuestionsCard
+                    PrepLikelyQuestionsCard(questions: prep.likelyQuestions)
                 }
 
-                actionButtons
+                PrepActionButtons(caseDescription: caseDescription, prep: prep)
             }
             .padding()
         }
         .navigationTitle(prep.title)
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var likelyQuestionsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Likely questions", systemImage: "bubble.left.and.bubble.right")
-                .font(.headline)
-            ForEach(prep.likelyQuestions) { qa in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(qa.question)
-                        .font(.subheadline.weight(.medium))
-                    Text(qa.answer)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-
-    private var actionButtons: some View {
-        VStack(spacing: 10) {
-            NavigationLink {
-                PimpMeView(caseDescription: caseDescription, prep: prep)
-            } label: {
-                Label("Pimp Me", systemImage: "flame.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-            }
-            .buttonStyle(.borderedProminent)
-
-            NavigationLink {
-                RapidFireView(caseDescription: caseDescription, prep: prep)
-            } label: {
-                Label("Rapid Fire", systemImage: "bolt.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4)
-            }
-            .buttonStyle(.bordered)
-        }
-        .padding(.top, 8)
     }
 }
 

@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var viewModel = HomeViewModel()
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var viewModel = HomeViewModel()
+    @Environment(SubscriptionManager.self) private var subscriptionManager
+    @State private var isShowingError = false
 
     var body: some View {
         NavigationStack {
@@ -76,7 +77,12 @@ struct HomeView: View {
                     }
 
                     if !viewModel.recentCases.isEmpty {
-                        recentCases
+                        RecentCasesSection(
+                            recentCases: viewModel.recentCases,
+                            onReview: { scrubCase in Task { await viewModel.reviewRecentCase(scrubCase) } },
+                            onPimpMe: { scrubCase in Task { await viewModel.startPimpMeFromRecentCase(scrubCase) } },
+                            onRapidFire: { scrubCase in Task { await viewModel.startRapidFireFromRecentCase(scrubCase) } }
+                        )
                     }
                 }
                 .padding()
@@ -120,10 +126,13 @@ struct HomeView: View {
                         .background(.regularMaterial)
                 }
             }
-            .alert("Couldn't prepare this case", isPresented: errorBinding) {
+            .alert("Couldn't prepare this case", isPresented: $isShowingError) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(viewModel.errorMessage ?? "")
+            }
+            .onChange(of: viewModel.errorMessage) { _, newValue in
+                isShowingError = newValue != nil
             }
             .sheet(isPresented: $viewModel.showPaywall) {
                 PaywallView(onPurchaseCompleted: viewModel.resumeAfterSubscribing)
@@ -131,42 +140,6 @@ struct HomeView: View {
         }
     }
 
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.errorMessage != nil },
-            // Deferred via Task — see SignInView.errorBinding's identical comment: this
-            // setter can run while SwiftUI is still inside a view-update pass, and
-            // mutating an ObservableObject's @Published property synchronously there is
-            // undefined behavior.
-            set: { newValue in
-                if !newValue {
-                    Task { viewModel.errorMessage = nil }
-                }
-            }
-        )
-    }
-
-    private var recentCases: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Cases")
-                .font(.title3.weight(.semibold))
-
-            ForEach(viewModel.recentCases.prefix(5)) { scrubCase in
-                RecentCaseRow(
-                    scrubCase: scrubCase,
-                    onReview: {
-                        Task { await viewModel.reviewRecentCase(scrubCase) }
-                    },
-                    onPimpMe: {
-                        Task { await viewModel.startPimpMeFromRecentCase(scrubCase) }
-                    },
-                    onRapidFire: {
-                        Task { await viewModel.startRapidFireFromRecentCase(scrubCase) }
-                    }
-                )
-            }
-        }
-    }
 }
 
 enum HomeRoute: Hashable {
@@ -175,5 +148,5 @@ enum HomeRoute: Hashable {
 
 #Preview {
     HomeView()
-        .environmentObject(SubscriptionManager())
+        .environment(SubscriptionManager())
 }

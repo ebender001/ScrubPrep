@@ -7,17 +7,11 @@ struct RecentCaseRow: View {
     let onPimpMe: () -> Void
     let onRapidFire: () -> Void
 
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }()
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(scrubCase.prep.title)
                 .font(.subheadline.weight(.semibold))
-            Text(Self.dateFormatter.string(from: scrubCase.createdAt))
+            Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -35,7 +29,7 @@ struct RecentCaseRow: View {
             }
         }
         .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 14))
     }
 }
 

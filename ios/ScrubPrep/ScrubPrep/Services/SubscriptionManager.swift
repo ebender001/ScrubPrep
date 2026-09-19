@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 import StoreKit
 
@@ -14,7 +13,8 @@ import StoreKit
 /// for the accepted tradeoff (no independent server-side enforcement of an active
 /// subscription).
 @MainActor
-final class SubscriptionManager: ObservableObject {
+@Observable
+final class SubscriptionManager {
     // Reuse the identifiers already configured in App Store Connect / ScrubPrep.storekit.
     static let monthlyProductID = "dev.benderapps.ScrubPrep.subscription.monthly"
     static let quarterlyProductID = "dev.benderapps.ScrubPrep.subscription.quarterly"
@@ -36,13 +36,17 @@ final class SubscriptionManager: ObservableObject {
         case userCancelled
     }
 
-    @Published private(set) var products: [Product] = []
-    @Published private(set) var isLoadingProducts = false
-    @Published private(set) var productsLoadError: String?
-    @Published private(set) var activeSubscription: ActiveSubscription?
+    private(set) var products: [Product] = []
+    private(set) var isLoadingProducts = false
+    private(set) var productsLoadError: String?
+    private(set) var activeSubscription: ActiveSubscription?
 
     var hasActiveSubscription: Bool { activeSubscription != nil }
 
+    // @ObservationIgnored: not UI-facing state, and `deinit` (always nonisolated) needs to
+    // access it as a plain stored property — an @Observable-tracked property's synthesized
+    // accessor is @MainActor-isolated, which a nonisolated deinit can't call into.
+    @ObservationIgnored
     private var updatesTask: Task<Void, Never>?
 
     init() {

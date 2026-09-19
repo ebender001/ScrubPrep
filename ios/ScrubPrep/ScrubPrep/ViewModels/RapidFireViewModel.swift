@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 /// Drives the Rapid Fire flow: fetch exactly 5 high-yield question/answer pairs, then
@@ -6,7 +5,8 @@ import Foundation
 /// there's nothing to grade or persist; "Go Again" generates a fresh set of 5 rather than
 /// replaying the same ones (spec §9: "2 minutes before the OR", no lengthy explanations).
 @MainActor
-final class RapidFireViewModel: ObservableObject {
+@Observable
+final class RapidFireViewModel {
     /// Caps the whole review (across every "Go Again" round) at 10 questions total —
     /// this is meant to be a 2-minute pre-op refresher, not an unbounded quiz.
     static let maxTotalQuestions = 10
@@ -14,11 +14,11 @@ final class RapidFireViewModel: ObservableObject {
     let caseDescription: String
     let prep: ORPrep
 
-    @Published private(set) var isLoading = true
-    @Published private(set) var questions: [QAPair] = []
-    @Published private(set) var currentIndex = 0
-    @Published private(set) var isAnswerRevealed = false
-    @Published var errorMessage: String?
+    private(set) var isLoading = true
+    private(set) var questions: [QAPair] = []
+    private(set) var currentIndex = 0
+    private(set) var isAnswerRevealed = false
+    var errorMessage: String?
 
     /// Every question asked across all rounds this session (including the current one,
     /// once loaded) — sent back on the next "Go Again" so a fresh set doesn't just repeat

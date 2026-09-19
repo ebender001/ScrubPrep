@@ -2,13 +2,8 @@ import SwiftUI
 
 /// Full case history list (spec §11) — the Home screen only shows the 5 most recent.
 struct CasesListView: View {
-    @StateObject private var viewModel = CasesListViewModel()
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }()
+    @State private var viewModel = CasesListViewModel()
+    @State private var isShowingError = false
 
     var body: some View {
         NavigationStack {
@@ -29,7 +24,7 @@ struct CasesListView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(scrubCase.prep.title)
                                         .font(.subheadline.weight(.semibold))
-                                    Text(Self.dateFormatter.string(from: scrubCase.createdAt))
+                                    Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -61,19 +56,15 @@ struct CasesListView: View {
             .task {
                 await viewModel.load()
             }
-            .alert("Couldn't load your cases", isPresented: errorBinding) {
+            .alert("Couldn't load your cases", isPresented: $isShowingError) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
+            .onChange(of: viewModel.errorMessage) { _, newValue in
+                isShowingError = newValue != nil
+            }
         }
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )
     }
 }
 

@@ -1,14 +1,14 @@
-import Combine
 import Foundation
 
 /// Backs the full Cases list (`CasesListView`) — separate from `HomeViewModel`, which
 /// only ever needs the 5 most recent. Backend-authoritative, so (unlike the SwiftData
 /// `@Query` this replaces) loading is explicit and async.
 @MainActor
-final class CasesListViewModel: ObservableObject {
-    @Published private(set) var cases: [ScrubCase] = []
-    @Published private(set) var isLoading = true
-    @Published var errorMessage: String?
+@Observable
+final class CasesListViewModel {
+    private(set) var cases: [ScrubCase] = []
+    private(set) var isLoading = true
+    var errorMessage: String?
 
     private let historyStore: CaseHistoryStore
 

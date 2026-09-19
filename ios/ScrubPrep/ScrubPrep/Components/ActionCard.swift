@@ -18,7 +18,7 @@ struct ActionCard: View {
                 .font(.title2)
                 .foregroundStyle(tint)
                 .frame(width: 40, height: 40)
-                .background(tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(tint.opacity(0.15), in: .rect(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
@@ -44,7 +44,7 @@ struct ActionCard: View {
                 .foregroundStyle(.tertiary)
         }
         .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
     }
 }
 

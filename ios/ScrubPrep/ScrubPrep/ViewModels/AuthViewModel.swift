@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 import ParseSwift
 
@@ -9,16 +8,21 @@ import ParseSwift
 /// `AppConfig.useMockData` — that flag exists to avoid OpenAI costs during UI dev, not
 /// to mock sign-in.
 @MainActor
-final class AuthViewModel: ObservableObject {
-    @Published private(set) var currentUser: User?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+final class AuthViewModel {
+    private(set) var currentUser: User?
+    var isLoading = false
+    var errorMessage: String?
     /// Set right after a successful email/password signup (not Apple — there's no
     /// password to recover on an Apple account, and we don't capture an email for one
     /// either) — the root view shows a one-time "check your inbox" alert on top of the
     /// transition into RootTabView, then clears this.
-    @Published var showAccountCreatedAlert = false
+    var showAccountCreatedAlert = false
 
+    // @ObservationIgnored: not UI-facing state, and `deinit` (always nonisolated) needs to
+    // access it as a plain stored property — see SubscriptionManager.updatesTask's
+    // identical comment.
+    @ObservationIgnored
     private var invalidSessionObserver: NSObjectProtocol?
 
     /// ParseSwift restores a logged-in user from the Keychain synchronously at launch —

@@ -1,55 +1,54 @@
-import Combine
 import Foundation
 import ParseSwift
-import SwiftUI
 
 @MainActor
-final class HomeViewModel: ObservableObject {
-    @Published var caseDescription: String = ""
-    @Published var isGenerating = false
+@Observable
+final class HomeViewModel {
+    var caseDescription: String = ""
+    var isGenerating = false
     // True while `isGenerating` is specifically generating this account's complimentary
     // (free) case — set right before the actual generatePrep call, once resolvePrep has
     // confirmed this is a genuinely new case and the free allowance hasn't been used yet.
     // HomeView uses this to show different loading copy for that one case only.
-    @Published private(set) var isPreparingComplimentaryCase = false
-    @Published var errorMessage: String?
+    private(set) var isPreparingComplimentaryCase = false
+    var errorMessage: String?
     // Set when this is a genuinely NEW case (not already in history) and neither
     // `subscriptionManager.hasActiveSubscription` nor an unused complimentary case allows
     // it — see resolvePrep. Checked entirely client-side, before any network/AI request.
-    @Published var showPaywall = false
-    @Published var generatedPrep: ORPrep?
-    @Published var navigateToPrep = false
+    var showPaywall = false
+    var generatedPrep: ORPrep?
+    var navigateToPrep = false
     // The (trimmed) case description `generatedPrep` was actually prepared for — Home's
     // Pimp Me/Rapid Fire buttons are only enabled once this matches the current
     // `caseDescription` (see isCurrentCasePrepared), so those features are never
     // reachable from Home until Prepare Me has been tapped for that exact case. Editing
     // the text afterward re-locks them until Prepare Me is tapped again.
-    @Published private(set) var preparedCaseDescription: String?
+    private(set) var preparedCaseDescription: String?
     // Set when Pimp Me is started directly from Home, using the prep already generated
     // by Prepare Me (see isCurrentCasePrepared) — this flag drives navigation straight
     // into the interactive session instead of PrepView.
-    @Published var pimpMePrep: ORPrep?
-    @Published var navigateToPimpMe = false
+    var pimpMePrep: ORPrep?
+    var navigateToPimpMe = false
     // Same idea as pimpMePrep/navigateToPimpMe, for Rapid Fire started directly from Home.
-    @Published var rapidFirePrep: ORPrep?
-    @Published var navigateToRapidFire = false
+    var rapidFirePrep: ORPrep?
+    var navigateToRapidFire = false
 
     // Backend-authoritative — not cached locally. Loaded via loadCases(), called from
     // HomeView's .task and refreshed after anything that mutates a case.
-    @Published private(set) var recentCases: [ScrubCase] = []
+    private(set) var recentCases: [ScrubCase] = []
 
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
     // chips until the user picks one from the specialty row (spec: specialty selection is
     // the first step, not a default). Kept as full CaseType values (not just names) so the
     // chip can show the short name while inserting fullName into the text field on tap.
-    @Published var exampleChips: [CaseType] = []
+    var exampleChips: [CaseType] = []
 
     // Shown instantly from SpecialtyCache on launch, then silently refreshed from the
     // network — see backend/cloud/scrubPrep/specialties.js.
-    @Published var specialties: [Specialty]
+    var specialties: [Specialty]
     // Restored from SelectedSpecialtyStore on launch so closing and reopening the app
     // remembers the student's specialty instead of resetting to "no specialty".
-    @Published var selectedSpecialty: Specialty?
+    var selectedSpecialty: Specialty?
 
     private var allCaseTypes: [CaseType] = []
 
@@ -63,9 +62,9 @@ final class HomeViewModel: ObservableObject {
     private let service: ScrubPrepServicing
     private let historyStore: CaseHistoryStore
     private var generationTask: Task<Void, Never>?
-    // Wired once from HomeView's `.task` — environment objects aren't available inside a
-    // @StateObject's own init. Nil only for the brief window before that first `.task`
-    // runs, or in a preview that never attaches one.
+    // Wired once from HomeView's `.task` — environment values aren't available inside a
+    // @State view model's own init. Nil only for the brief window before that first
+    // `.task` runs, or in a preview that never attaches one.
     private var subscriptionManager: SubscriptionManager?
 
     // Guards against acting on a response that arrives after the user cancelled (or
@@ -95,8 +94,8 @@ final class HomeViewModel: ObservableObject {
         refreshSpecialties()
     }
 
-    /// Wired once from HomeView's `.task` (environment objects aren't available in a
-    /// @StateObject's own init) — the source of truth for whether a subscription is
+    /// Wired once from HomeView's `.task` (environment values aren't available in a
+    /// @State view model's own init) — the source of truth for whether a subscription is
     /// currently active. Cheap/idempotent to call again on every `.task` re-run.
     func attach(subscriptionManager: SubscriptionManager) {
         self.subscriptionManager = subscriptionManager
