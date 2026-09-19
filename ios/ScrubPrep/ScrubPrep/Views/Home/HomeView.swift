@@ -77,7 +77,12 @@ struct HomeView: View {
                     }
 
                     if !viewModel.recentCases.isEmpty {
-                        recentCases
+                        RecentCasesSection(
+                            recentCases: viewModel.recentCases,
+                            onReview: { scrubCase in Task { await viewModel.reviewRecentCase(scrubCase) } },
+                            onPimpMe: { scrubCase in Task { await viewModel.startPimpMeFromRecentCase(scrubCase) } },
+                            onRapidFire: { scrubCase in Task { await viewModel.startRapidFireFromRecentCase(scrubCase) } }
+                        )
                     }
                 }
                 .padding()
@@ -135,27 +140,6 @@ struct HomeView: View {
         }
     }
 
-    private var recentCases: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Cases")
-                .font(.title3.weight(.semibold))
-
-            ForEach(viewModel.recentCases.prefix(5)) { scrubCase in
-                RecentCaseRow(
-                    scrubCase: scrubCase,
-                    onReview: {
-                        Task { await viewModel.reviewRecentCase(scrubCase) }
-                    },
-                    onPimpMe: {
-                        Task { await viewModel.startPimpMeFromRecentCase(scrubCase) }
-                    },
-                    onRapidFire: {
-                        Task { await viewModel.startRapidFireFromRecentCase(scrubCase) }
-                    }
-                )
-            }
-        }
-    }
 }
 
 enum HomeRoute: Hashable {
