@@ -17,3 +17,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
+// Hero jumbotron: cycle through background videos, one after another.
+// Skipped entirely for prefers-reduced-motion — the poster frame stays put.
+document.addEventListener("DOMContentLoaded", () => {
+  const heroVideo = document.querySelector(".hero-video-bg");
+  if (!heroVideo) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const sources = [
+    "assets/videos/hero-1.mp4",
+    "assets/videos/hero-2.mp4",
+    "assets/videos/hero-3.mp4",
+    "assets/videos/hero-4.mp4",
+  ];
+  let index = 0;
+
+  heroVideo.addEventListener("ended", () => {
+    index = (index + 1) % sources.length;
+    heroVideo.src = sources[index];
+    heroVideo.play().catch(() => {});
+  });
+
+  heroVideo.play().catch(() => {});
+});

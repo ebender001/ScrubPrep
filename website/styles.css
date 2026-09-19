@@ -165,6 +165,83 @@ nav.site-nav a:hover {
   margin: 0 auto 32px;
 }
 
+/* Hero jumbotron with rotating background video */
+
+.hero.hero-video {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  min-height: 560px;
+  display: flex;
+  align-items: center;
+  color: #fff;
+}
+
+.hero-video-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  background: var(--ink);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(28, 28, 30, 0.55) 0%, rgba(28, 28, 30, 0.72) 100%);
+}
+
+.hero-video .wrap {
+  position: relative;
+  z-index: 2;
+  padding: 88px 24px;
+  width: 100%;
+}
+
+.hero-video h1 {
+  color: #fff;
+}
+
+.hero-video p.subtitle {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.hero-video .pill-note {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.hero-video .btn-secondary {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.hero-video .btn-secondary:hover {
+  border-color: #fff;
+}
+
+@media (max-width: 640px) {
+  .hero.hero-video {
+    min-height: 460px;
+  }
+
+  .hero-video .wrap {
+    padding: 64px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-video-bg {
+    display: none;
+  }
+
+  .hero.hero-video {
+    background: var(--ink) url("assets/videos/hero-poster.jpg") center/cover no-repeat;
+  }
+}
+
 .cta-row {
   display: flex;
   gap: 14px;
