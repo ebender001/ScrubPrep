@@ -402,6 +402,58 @@ section .section-lede {
   font-size: 0.85rem;
 }
 
+/* Creator */
+
+.creator-card {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  max-width: 680px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.creator-photo {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.creator-bio p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.creator-bio p.creator-name {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.creator-bio p.creator-tagline {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.creator-bio p.creator-disclaimer-link {
+  margin-bottom: 0;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .creator-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 28px 24px;
+  }
+}
+
 /* Pricing */
 
 .pricing-grid {
