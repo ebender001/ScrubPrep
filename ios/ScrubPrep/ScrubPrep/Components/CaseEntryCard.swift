@@ -57,8 +57,22 @@ struct CaseEntryCard: View {
             .focused($isFocused)
             .disabled(!isSpecialtySelected)
             .padding(8)
+            .padding(.trailing, caseDescription.isEmpty ? 0 : 24)
             .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
             .opacity(isSpecialtySelected ? 1 : 0.6)
+            .overlay(alignment: .topTrailing) {
+                if !caseDescription.isEmpty {
+                    Button {
+                        caseDescription = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(10)
+                    .accessibilityLabel("Clear")
+                }
+            }
 
             // Reads as helpful guidance, not a second heading — secondary color and a
             // medium (not bold) weight keep it clearly subordinate to the card title.
