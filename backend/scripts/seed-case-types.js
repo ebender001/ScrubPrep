@@ -104,6 +104,17 @@ const CASE_TYPES = [
   { name: "Varicose Vein Ablation", fullName: "Varicose Vein Ablation", specialtyName: "Vascular Surgery", sortOrder: 8, featured: false },
   { name: "Carotid Artery Stenting", fullName: "Carotid Artery Stenting (CAS)", specialtyName: "Vascular Surgery", sortOrder: 9, featured: false },
   { name: "Peripheral Angioplasty", fullName: "Peripheral Angioplasty and Stenting", specialtyName: "Vascular Surgery", sortOrder: 10, featured: false },
+
+  // Neurosurgery
+  { name: "Craniotomy for Tumor", fullName: "Craniotomy for Tumor Resection", specialtyName: "Neurosurgery", sortOrder: 1, featured: false },
+  { name: "Aneurysm Clipping", fullName: "Craniotomy for Cerebral Aneurysm Clipping", specialtyName: "Neurosurgery", sortOrder: 2, featured: false },
+  { name: "Lumbar Laminectomy", fullName: "Lumbar Laminectomy", specialtyName: "Neurosurgery", sortOrder: 3, featured: false },
+  { name: "ACDF", fullName: "Anterior Cervical Discectomy and Fusion", specialtyName: "Neurosurgery", sortOrder: 4, featured: false },
+  { name: "VP Shunt Placement", fullName: "Ventriculoperitoneal (VP) Shunt Placement", specialtyName: "Neurosurgery", sortOrder: 5, featured: false },
+  { name: "Craniectomy", fullName: "Decompressive Craniectomy", specialtyName: "Neurosurgery", sortOrder: 6, featured: false },
+  { name: "Spinal Fusion", fullName: "Posterior Lumbar Interbody Fusion", specialtyName: "Neurosurgery", sortOrder: 7, featured: false },
+  { name: "Deep Brain Stimulator Placement", fullName: "Deep Brain Stimulator (DBS) Placement", specialtyName: "Neurosurgery", sortOrder: 8, featured: false },
+  { name: "Microdiscectomy", fullName: "Lumbar Microdiscectomy", specialtyName: "Neurosurgery", sortOrder: 9, featured: false },
 ];
 
 async function deleteAllCaseTypes(ctx) {

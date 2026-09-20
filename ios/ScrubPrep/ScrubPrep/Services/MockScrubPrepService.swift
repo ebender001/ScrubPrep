@@ -107,6 +107,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
         Specialty(id: "mock_urology", name: "Urology", exampleCaseDescription: "TURP for BPH with urinary retention"),
         Specialty(id: "mock_orthopedics", name: "Orthopedics", exampleCaseDescription: "Total knee arthroplasty for end-stage osteoarthritis"),
         Specialty(id: "mock_vascular_surgery", name: "Vascular Surgery", exampleCaseDescription: "CEA for symptomatic carotid stenosis"),
+        Specialty(id: "mock_neurosurgery", name: "Neurosurgery", exampleCaseDescription: "Pterional craniotomy for aneurysm clipping"),
     ]
 
     private static let mockFeaturedCaseTypeNames: Set<String> = ["Lap Chole", "Appendectomy", "Inguinal Hernia", "Colectomy"]
@@ -146,6 +147,11 @@ final class MockScrubPrepService: ScrubPrepServicing {
             "AV Fistula Creation", "Thrombectomy", "Varicose Vein Ablation", "Carotid Artery Stenting",
             "Peripheral Angioplasty",
         ]),
+        (7, [
+            "Craniotomy for Tumor", "Aneurysm Clipping", "Lumbar Laminectomy", "ACDF",
+            "VP Shunt Placement", "Craniectomy", "Spinal Fusion", "Deep Brain Stimulator Placement",
+            "Microdiscectomy",
+        ]),
     ]
 
     // Mirrors backend/scripts/seed-case-types.js's fullName values. Falls back to `name`
@@ -184,6 +190,14 @@ final class MockScrubPrepService: ScrubPrepServicing {
         "Thrombectomy": "Thrombectomy for Acute Limb Ischemia",
         "Carotid Artery Stenting": "Carotid Artery Stenting (CAS)",
         "Peripheral Angioplasty": "Peripheral Angioplasty and Stenting",
+        "Craniotomy for Tumor": "Craniotomy for Tumor Resection",
+        "Aneurysm Clipping": "Craniotomy for Cerebral Aneurysm Clipping",
+        "ACDF": "Anterior Cervical Discectomy and Fusion",
+        "VP Shunt Placement": "Ventriculoperitoneal (VP) Shunt Placement",
+        "Craniectomy": "Decompressive Craniectomy",
+        "Spinal Fusion": "Posterior Lumbar Interbody Fusion",
+        "Deep Brain Stimulator Placement": "Deep Brain Stimulator (DBS) Placement",
+        "Microdiscectomy": "Lumbar Microdiscectomy",
     ]
 
     private static let mockCaseTypes: [CaseType] = mockCaseTypeNamesBySpecialtyIndex.flatMap { entry in

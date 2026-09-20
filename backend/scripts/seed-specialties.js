@@ -19,6 +19,7 @@ const SPECIALTIES = [
   { name: "Urology", sortOrder: 5, exampleCaseDescription: "TURP for BPH with urinary retention" },
   { name: "Orthopedics", sortOrder: 6, exampleCaseDescription: "Total knee arthroplasty for end-stage osteoarthritis" },
   { name: "Vascular Surgery", sortOrder: 7, exampleCaseDescription: "CEA for symptomatic carotid stenosis" },
+  { name: "Neurosurgery", sortOrder: 8, exampleCaseDescription: "Pterional craniotomy for aneurysm clipping" },
 ];
 
 async function upsertSpecialty(specialty, ctx) {
