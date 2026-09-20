@@ -45,14 +45,23 @@ struct AboutView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.thinMaterial, in: .rect(cornerRadius: 16))
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Creator")
-                            .font(.headline)
-                        Text("Scrub Prep was created by Edward Bender, MD, a retired cardiothoracic surgeon and former Clinical Professor of Cardiothoracic Surgery at Stanford University.")
-                            .font(.subheadline)
-                        Text("Scrub Prep is an independent educational application and is not affiliated with or endorsed by Stanford University.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 12) {
+                        Image("creator-headshot")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 60, height: 60)
+                            .clipShape(Circle())
+                            .accessibilityLabel("Portrait of Dr. Edward Bender, retired cardiothoracic surgeon and creator of Scrub Prep")
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Creator")
+                                .font(.headline)
+                            Text("Scrub Prep was created by Edward Bender, MD, a retired cardiothoracic surgeon and former Clinical Professor of Cardiothoracic Surgery at Stanford University.")
+                                .font(.subheadline)
+                            Text("Scrub Prep is an independent educational application and is not affiliated with or endorsed by Stanford University.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
