@@ -10,7 +10,7 @@ struct PrepActionButtons: View {
             NavigationLink {
                 PimpMeView(caseDescription: caseDescription, prep: prep)
             } label: {
-                Label("Pimp Me", systemImage: "flame.fill")
+                Label("Quiz Me", systemImage: "flame.fill")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)

@@ -19,7 +19,7 @@ struct RecentCaseRow: View {
                 Button("Review", action: onReview)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                Button("Pimp Me", action: onPimpMe)
+                Button("Quiz Me", action: onPimpMe)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 Button("Rapid Fire", action: onRapidFire)

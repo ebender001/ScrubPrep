@@ -39,7 +39,7 @@ struct PaywallView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Prepare for your next case")
                             .font(.title2.weight(.bold))
-                        Text("Get access to case preparation, Pimp Me, and Rapid Fire.")
+                        Text("Get access to case preparation, Quiz Me, and Rapid Fire.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

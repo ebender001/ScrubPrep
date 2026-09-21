@@ -15,7 +15,7 @@ struct PimpMeView: View {
 
     var body: some View {
         content
-            .navigationTitle("Pimp Me")
+            .navigationTitle("Quiz Me")
             .navigationBarTitleDisplayMode(.inline)
             .alert("Couldn't continue", isPresented: $isShowingError) {
                 Button("OK", role: .cancel) {}

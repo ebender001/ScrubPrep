@@ -50,7 +50,7 @@ struct ActionCard: View {
 
 #Preview {
     ActionCard(
-        title: "Pimp Me",
+        title: "Quiz Me",
         subtitle: "Test me before I scrub.",
         description: "Interactive questions tailored to your case.",
         systemImage: "flame.fill",
