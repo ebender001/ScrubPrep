@@ -464,6 +464,39 @@ test("generateScrubPrep: saving a case marks the complimentary flag used; this b
   assert.equal(owner.get("hasUsedComplimentaryCase"), true);
 });
 
+test("generateScrubPrep caches on a miss, then serves a matching (whitespace/case-insensitive) request from PrepCatalog without calling OpenAI again", async () => {
+  const owner = await fakeUser();
+  responseQueue.push({
+    recognized: true,
+    title: "Thyroidectomy",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+  });
+  const first = await registry.generateScrubPrep({
+    params: { caseDescription: "Thyroidectomy" },
+    user: owner,
+  });
+  assert.equal(first.title, "Thyroidectomy");
+  const entriesForThisCase = () =>
+    Object.values(store.PrepCatalog || {}).filter((o) => o.get("normalizedDescription") === "thyroidectomy");
+  assert.equal(entriesForThisCase().length, 1);
+
+  // No response queued for this second call — if the cache didn't hit and this fell
+  // through to https.request, the mock would throw "no mock response queued".
+  const second = await registry.generateScrubPrep({
+    params: { caseDescription: "  THYROIDECTOMY  " },
+    user: owner,
+  });
+  assert.deepEqual(second, first);
+  assert.equal(entriesForThisCase().length, 1, "cache hit must not create a duplicate entry");
+});
+
 test("generateRapidFire returns exactly 5 questions via the cloud function", async () => {
   responseQueue.push({
     questions: Array.from({ length: 5 }, (_, i) => ({ question: `Q${i}`, answer: `A${i}` })),

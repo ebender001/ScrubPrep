@@ -8,6 +8,7 @@ const schemas = require("./scrubPrep/schemas");
 const caseTypes = require("./scrubPrep/caseTypes");
 const specialties = require("./scrubPrep/specialties");
 const cases = require("./scrubPrep/cases");
+const prepCatalog = require("./scrubPrep/prepCatalog");
 const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
 const cleanup = require("./scrubPrep/cleanup");
 const aiClient = require("./scrubPrep/aiClient");
@@ -149,13 +150,23 @@ Parse.Cloud.define(
     );
     assertNoPHI(caseDescription);
 
+    // Cross-user cache: if anyone has already generated this exact (normalized) case
+    // description under the current prompt version, skip OpenAI entirely. See
+    // prepCatalog.js's file comment for why this is separate from ScrubCase (which is
+    // per-owner and exists for a different reason).
+    const normalizedDescription = prepCatalog.normalizeDescription(caseDescription);
+    const cached = await prepCatalog.getCachedPrep(normalizedDescription);
+    if (cached) return cached;
+
     // Whether this request is even allowed to reach here (active subscription, or an
     // unused complimentary case) is decided entirely client-side via StoreKit 2 — see
     // SubscriptionManager.swift and HomeViewModel.resolvePrep. This backend does not
     // independently enforce it; see subscriptions.js's file comment for the accepted
     // tradeoff.
     try {
-      return await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
+      const result = await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
+      await prepCatalog.upsertCatalogEntry({ caseDescription, normalizedDescription, prep: result });
+      return result;
     } catch (err) {
       if (err instanceof prep.UnrecognizedCaseError) {
         throw new Parse.Error(UNRECOGNIZED_CASE_ERROR_CODE, randomUnrecognizedCaseMessage());
