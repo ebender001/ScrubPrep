@@ -26,7 +26,7 @@ nonisolated enum PimpDifficulty: String, Codable, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .easy: return "Foundational questions, more guidance."
-        case .typical: return "Standard student-level pimping."
+        case .typical: return "Standard student-level quizzing."
         case .tough: return "Faster pace, follow-ups probe deeper."
         }
     }

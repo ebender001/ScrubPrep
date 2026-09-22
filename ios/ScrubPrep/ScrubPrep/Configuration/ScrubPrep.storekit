@@ -69,7 +69,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Monthly access to case preparation, Pimp Me, and Rapid Fire.",
+              "description" : "Monthly access to case preparation, Quiz Me, and Rapid Fire.",
               "displayName" : "Scrub Prep Pro Monthly",
               "locale" : "en_US"
             }
@@ -91,7 +91,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Every-3-months access to case preparation, Pimp Me, and Rapid Fire.",
+              "description" : "Every-3-months access to case preparation, Quiz Me, and Rapid Fire.",
               "displayName" : "Scrub Prep Pro Quarterly",
               "locale" : "en_US"
             }
