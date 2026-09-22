@@ -40,6 +40,8 @@ struct AboutView: View {
                             .font(.headline)
                         Text("Scrub Prep is an educational tool for medical students and is not intended to provide patient-specific medical advice, diagnosis, or treatment recommendations. Clinical decisions should be made under the supervision of the student's clinical team.")
                             .font(.subheadline)
+                        Link("Report an AI Concern", destination: URL(string: "mailto:support@benderapps.dev?subject=Report%20AI%20concerns")!)
+                            .font(.subheadline.weight(.medium))
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
