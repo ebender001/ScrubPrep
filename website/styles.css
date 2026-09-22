@@ -505,6 +505,53 @@ section .section-lede {
   font-size: 0.95rem;
 }
 
+/* Scroll-reveal: cards fade/slide in as they enter the viewport (see script.js).
+   Gated behind body.reveal-ready so content stays visible if JS never runs. */
+
+body:not(.reveal-ready) .card,
+body:not(.reveal-ready) .screen-item,
+body:not(.reveal-ready) .creator-card,
+body:not(.reveal-ready) .price-card {
+  opacity: 1;
+  transform: none;
+}
+
+.card,
+.screen-item,
+.creator-card,
+.price-card {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.card.is-visible,
+.screen-item.is-visible,
+.creator-card.is-visible,
+.price-card.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.grid .card:nth-child(2) { transition-delay: 0.08s; }
+.grid .card:nth-child(3) { transition-delay: 0.16s; }
+.grid .card:nth-child(4) { transition-delay: 0.24s; }
+
+.screens-grid .screen-item:nth-child(2) { transition-delay: 0.1s; }
+
+.pricing-grid .price-card:nth-child(2) { transition-delay: 0.1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .screen-item,
+  .creator-card,
+  .price-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* Legal / content pages */
 
 .legal main {

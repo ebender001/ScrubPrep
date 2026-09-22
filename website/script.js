@@ -41,3 +41,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   heroVideo.play().catch(() => {});
 });
+
+// Scroll-reveal: fade/slide cards in as they enter the viewport. Skipped for
+// prefers-reduced-motion (cards stay visible via the CSS media query either way).
+document.addEventListener("DOMContentLoaded", () => {
+  const targets = document.querySelectorAll(".card, .screen-item, .creator-card, .price-card");
+  if (!targets.length) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  document.body.classList.add("reveal-ready");
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    },
+    { threshold: 0.15, rootMargin: "0px 0px -40px 0px" }
+  );
+
+  targets.forEach((el) => observer.observe(el));
+});
