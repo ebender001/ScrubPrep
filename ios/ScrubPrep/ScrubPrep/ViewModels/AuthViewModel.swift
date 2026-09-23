@@ -182,6 +182,8 @@ final class AuthViewModel {
             return "Check your connection and try again."
         }
         switch parseError.code {
+        case .invalidEmailAddress:
+            return "That doesn't look like a valid email address. Check it and try again."
         case .usernameTaken, .userEmailTaken:
             return "That email is already in use. Try signing in instead."
         case .objectNotFound:

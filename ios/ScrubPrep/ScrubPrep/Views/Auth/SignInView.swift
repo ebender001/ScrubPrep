@@ -13,12 +13,15 @@ struct SignInView: View {
     @Environment(AuthViewModel.self) private var authViewModel
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var mode: Mode = .logIn
+    // Defaults to account creation: sessions persist until an explicit sign-out, so most
+    // students only ever type credentials here once, to sign up.
+    @State private var mode: Mode = .signUp
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var infoMessage: String?
     @State private var isShowingError = false
+    @Namespace private var modeSelectionNamespace
 
     var body: some View {
         ScrollView {
@@ -32,7 +35,9 @@ struct SignInView: View {
                 }
                 .padding(.top, 40)
 
-                SignInWithAppleButton(.signIn) { request in
+                // `.continue` rather than `.signIn`: the same button creates an account for a
+                // first-time user, so "Sign in" would wrongly suggest one must already exist.
+                SignInWithAppleButton(.continue) { request in
                     request.requestedScopes = [.email]
                 } onCompletion: { result in
                     handleAppleCompletion(result)
@@ -48,6 +53,18 @@ struct SignInView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 12) {
+                    // A segmented control rather than a footnote link, so switching to
+                    // Sign In is obvious for a returning student on a new device.
+                    // Custom rather than `.pickerStyle(.segmented)`, which can't take the
+                    // accent color for its selected segment.
+                    HStack(spacing: 0) {
+                        modeSegment("Create Account", mode: .signUp)
+                        modeSegment("Sign In", mode: .logIn)
+                    }
+                    .padding(3)
+                    .background(Color(.secondarySystemBackground), in: .capsule)
+                    .padding(.bottom, 4)
+
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
                         .keyboardType(.emailAddress)
@@ -97,17 +114,9 @@ struct SignInView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    HStack {
-                        Button(mode == .signUp ? "Already have an account? Sign in" : "New here? Create an account") {
-                            mode = mode == .signUp ? .logIn : .signUp
-                            infoMessage = nil
-                            confirmPassword = ""
-                        }
-                        .font(.footnote)
-
-                        Spacer()
-
-                        if mode == .logIn {
+                    if mode == .logIn {
+                        HStack {
+                            Spacer()
                             Button("Forgot password?") {
                                 Task { await sendPasswordReset() }
                             }
@@ -119,14 +128,52 @@ struct SignInView: View {
             }
             .padding()
         }
-        .alert("Couldn't sign in", isPresented: $isShowingError) {
+        .alert(mode == .signUp ? "Couldn't create account" : "Couldn't sign in", isPresented: $isShowingError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(authViewModel.errorMessage ?? "")
         }
+        .onAppear {
+            // Arriving with an error already set means an existing account was just
+            // bounced here (e.g. AuthViewModel's session-expired handling) — they need to
+            // sign back in, not create a new account. The alert has to be raised here too:
+            // the onChange below only fires on later changes, never for a message that was
+            // already set before this view appeared.
+            if authViewModel.errorMessage != nil {
+                mode = .logIn
+                isShowingError = true
+            }
+        }
+        .onChange(of: mode) {
+            infoMessage = nil
+            confirmPassword = ""
+        }
         .onChange(of: authViewModel.errorMessage) { _, newValue in
             isShowingError = newValue != nil
         }
+    }
+
+    private func modeSegment(_ title: String, mode segmentMode: Mode) -> some View {
+        let isSelected = mode == segmentMode
+        return Button {
+            withAnimation(.snappy(duration: 0.25)) { mode = segmentMode }
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? .white : .primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill(.tint)
+                            .matchedGeometryEffect(id: "modeSelection", in: modeSelectionNamespace)
+                    }
+                }
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var isFormValid: Bool {
