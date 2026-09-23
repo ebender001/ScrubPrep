@@ -14,6 +14,7 @@ const cleanup = require("./scrubPrep/cleanup");
 const aiClient = require("./scrubPrep/aiClient");
 const aiUsage = require("./scrubPrep/aiUsage");
 const subscriptions = require("./scrubPrep/subscriptions");
+const account = require("./scrubPrep/account");
 
 subscriptions.registerProtectedFieldsGuard();
 
@@ -452,6 +453,18 @@ Parse.Cloud.define(
       summary,
     });
     return { session };
+  })
+);
+
+// In-app account deletion (App Store Guideline 5.1.1(v)) — see account.js for exactly
+// what's removed. Only ever deletes the caller's own account: the user comes from the
+// session token, never from a client-supplied id.
+Parse.Cloud.define(
+  "deleteAccount",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    await account.deleteAccount({ user });
+    return { success: true };
   })
 );
 

@@ -1,6 +1,17 @@
 import Foundation
 import ParseSwift
 
+/// `nonisolated`: see ORPrep's note — ParseCloudable requests run on ParseSwift's own
+/// background executor.
+nonisolated private struct DeleteAccountRequest: ParseCloudable {
+    typealias ReturnType = DeleteAccountResult
+    var functionJobName = "deleteAccount"
+}
+
+nonisolated private struct DeleteAccountResult: Codable {
+    let success: Bool
+}
+
 /// The single source of truth for whether the app shows `SignInView` or `RootTabView`
 /// (see `ScrubPrepApp`), and the view model backing `SignInView` itself — one class
 /// covers both since its state (currentUser, isLoading, errorMessage) is exactly what
@@ -135,6 +146,24 @@ final class AuthViewModel {
     func logOut() async {
         try? await User.logout()
         currentUser = nil
+    }
+
+    /// Permanently deletes the account and everything saved under it (see
+    /// backend/cloud/scrubPrep/account.js). Returns whether it succeeded — AboutView owns
+    /// its own progress/error state rather than using `isLoading`/`errorMessage`, which
+    /// belong to SignInView and would otherwise show up there stale after a failure. On
+    /// success the server has already deleted the session, so `User.logout()` will fail —
+    /// it still clears the Keychain locally regardless (ParseSwift always does), which is
+    /// all that's needed here.
+    func deleteAccount() async -> Bool {
+        do {
+            _ = try await DeleteAccountRequest().runFunction()
+        } catch {
+            return false
+        }
+        try? await User.logout()
+        currentUser = nil
+        return true
     }
 
     func resetPassword(email: String) async {

@@ -5,6 +5,9 @@ import SwiftUI
 struct AboutView: View {
     @Environment(AuthViewModel.self) private var authViewModel
     @State private var showSignOutConfirmation = false
+    @State private var showDeleteAccountConfirmation = false
+    @State private var isDeletingAccount = false
+    @State private var showDeleteAccountError = false
 
     var body: some View {
         NavigationStack {
@@ -28,6 +31,18 @@ struct AboutView: View {
                             showSignOutConfirmation = true
                         }
                         .font(.subheadline.weight(.medium))
+                        Button(role: .destructive) {
+                            showDeleteAccountConfirmation = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text("Delete Account")
+                                if isDeletingAccount {
+                                    ProgressView()
+                                }
+                            }
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .disabled(isDeletingAccount)
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,6 +110,28 @@ struct AboutView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .alert("Delete your account?", isPresented: $showDeleteAccountConfirmation) {
+                Button("Delete Account", role: .destructive) {
+                    Task { await deleteAccount() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This permanently deletes your account, saved cases, and Quiz Me sessions. This can't be undone. Deleting your account doesn't cancel an active subscription — cancel it first from the Subscription section above.")
+            }
+            .alert("Couldn't Delete Account", isPresented: $showDeleteAccountError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Check your connection and try again. If this keeps happening, contact support@benderapps.dev.")
+            }
+        }
+    }
+
+    private func deleteAccount() async {
+        isDeletingAccount = true
+        let deleted = await authViewModel.deleteAccount()
+        isDeletingAccount = false
+        if !deleted {
+            showDeleteAccountError = true
         }
     }
 
