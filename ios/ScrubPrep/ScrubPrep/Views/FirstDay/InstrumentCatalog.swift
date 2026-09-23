@@ -76,12 +76,22 @@ let instrumentCategories: [InstrumentCategory] = [
                 images: [
                     InstrumentImage("mayo-scissors-curved", caption: "Curved"),
                     InstrumentImage("mayo-scissors-straight", caption: "Straight"),
-                ]
+                ],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/7007-204sc/")
+                )
             ),
             Instrument(
                 name: "Iris scissors",
                 description: "Small, fine scissors for precise cutting of delicate tissue or sutures.",
-                images: [InstrumentImage("iris-scissors")]
+                images: [InstrumentImage("iris-scissors")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/7007-288sc/")
+                )
             ),
         ]
     ),
@@ -92,17 +102,32 @@ let instrumentCategories: [InstrumentCategory] = [
             Instrument(
                 name: "DeBakey forceps",
                 description: "Atraumatic forceps for handling delicate tissue and vessels.",
-                images: [InstrumentImage("debakey-forceps")]
+                images: [InstrumentImage("debakey-forceps")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/4004-42/")
+                )
             ),
             Instrument(
                 name: "Adson forceps",
                 description: "Toothed forceps for grasping skin during closure.",
-                images: [InstrumentImage("adson-forceps")]
+                images: [InstrumentImage("adson-forceps")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/4004-27/")
+                )
             ),
             Instrument(
                 name: "Allis clamp",
                 description: "Grasps and holds tissue with minimal crush injury.",
-                images: [InstrumentImage("allis-clamp")]
+                images: [InstrumentImage("allis-clamp")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/4635-06/")
+                )
             ),
             Instrument(
                 name: "Babcock clamp",
@@ -112,7 +137,12 @@ let instrumentCategories: [InstrumentCategory] = [
             Instrument(
                 name: "Gerald forceps",
                 description: "Fine-tipped forceps for delicate tissue handling, often with a platform tip for microsurgical work.",
-                images: [InstrumentImage("gerald-forceps")]
+                images: [InstrumentImage("gerald-forceps")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/4004-240/")
+                )
             ),
         ]
     ),
@@ -178,12 +208,22 @@ let instrumentCategories: [InstrumentCategory] = [
             Instrument(
                 name: "Ryder needle holder",
                 description: "A slender needle holder favored for fine, delicate suturing.",
-                images: [InstrumentImage("ryder-needle-holder")]
+                images: [InstrumentImage("ryder-needle-holder")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/6006-29/")
+                )
             ),
             Instrument(
                 name: "Castroviejo needle holder",
                 description: "A spring-loaded, palm-controlled needle holder used for fine or microsurgical suturing.",
-                images: [InstrumentImage("castroviejo-needle-holder")]
+                images: [InstrumentImage("castroviejo-needle-holder")],
+                attribution: InstrumentAttribution(
+                    sourceName: "Scanlan International",
+                    usedWithPermission: true,
+                    productURL: URL(string: "https://www.scanlaninternational.com/product/6006-56-3/")
+                )
             ),
         ]
     ),
