@@ -48,6 +48,16 @@ struct LearnView: View {
                             systemImage: "bolt"
                         )
                     }
+
+                    NavigationLink {
+                        PositioningView()
+                    } label: {
+                        LearnRow(
+                            title: "Positioning",
+                            subtitle: "Common patient positions and what to watch for.",
+                            systemImage: "bed.double"
+                        )
+                    }
                 }
             }
             .navigationTitle("Learn")
