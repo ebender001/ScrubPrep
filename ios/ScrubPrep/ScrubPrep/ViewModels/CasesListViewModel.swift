@@ -23,7 +23,9 @@ final class CasesListViewModel {
         isLoading = true
         errorMessage = nil
         do {
-            cases = try await historyStore.listAll()
+            // Newest first by the date each row displays (`createdAt`). The backend's
+            // updatedAt order doesn't match it — marking a case reviewed bumps updatedAt.
+            cases = try await historyStore.listAll().sorted { $0.createdAt > $1.createdAt }
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Scrub Prep wasn't able to load your cases. Please try again."
