@@ -8,6 +8,13 @@ struct PrepView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // Shown here, where it can wrap, instead of in the nav bar — long procedure
+                // names (e.g. "Thrombectomy for Acute Limb Ischemia") truncate there.
+                Text(prep.title)
+                    .font(.title2.weight(.bold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+
                 Text(prep.caseSummary)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -27,8 +34,11 @@ struct PrepView: View {
             }
             .padding()
         }
+        // Still set so the back button's long-press history names this screen, but kept
+        // out of the bar itself since the full title is the first line of content.
         .navigationTitle(prep.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(removing: .title)
     }
 }
 
