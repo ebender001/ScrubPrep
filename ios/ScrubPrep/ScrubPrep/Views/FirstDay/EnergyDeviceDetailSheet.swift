@@ -37,9 +37,14 @@ struct EnergyDeviceDetailSheet: View {
                 }
             }
             .padding()
+            // Clears the drag indicator, which otherwise crowds the first line.
+            .padding(.top, 12)
         }
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
+        // Opaque — the default translucent sheet at the medium detent lets the list
+        // behind it show through the text.
+        .presentationBackground(Color(.systemBackground))
     }
 }
 
