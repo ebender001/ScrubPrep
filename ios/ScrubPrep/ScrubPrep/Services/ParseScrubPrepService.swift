@@ -95,6 +95,13 @@ nonisolated private struct MarkCaseReviewedRequest: ParseCloudable {
     let caseId: String
 }
 
+nonisolated private struct SaveCaseNotesRequest: ParseCloudable {
+    typealias ReturnType = SaveCaseResult
+    var functionJobName = "saveCaseNotes"
+    let caseId: String
+    let notes: String
+}
+
 nonisolated private struct DeleteCaseRequest: ParseCloudable {
     typealias ReturnType = SuccessResult
     var functionJobName = "deleteCase"
@@ -160,6 +167,10 @@ struct ParseScrubPrepService: ScrubPrepServicing {
 
     func markCaseReviewed(caseId: String) async throws {
         try await run { try await MarkCaseReviewedRequest(caseId: caseId).runFunction() }
+    }
+
+    func saveCaseNotes(caseId: String, notes: String) async throws -> ScrubCase {
+        try await run { try await SaveCaseNotesRequest(caseId: caseId, notes: notes).runFunction().case }
     }
 
     func deleteCase(caseId: String) async throws {

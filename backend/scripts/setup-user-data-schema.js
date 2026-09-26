@@ -30,6 +30,7 @@ const SCHEMAS = [
       normalizedDescription: { type: "String" },
       prep: { type: "Object" },
       specialty: { type: "Pointer", targetClass: "Specialty" },
+      notes: { type: "String" },
       lastReviewedAt: { type: "Date" },
     },
   },

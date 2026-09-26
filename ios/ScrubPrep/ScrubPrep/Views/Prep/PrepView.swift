@@ -5,6 +5,8 @@ struct PrepView: View {
     let caseDescription: String
     let prep: ORPrep
 
+    @State private var isShowingNotes = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -30,7 +32,9 @@ struct PrepView: View {
                     PrepLikelyQuestionsCard(questions: prep.likelyQuestions)
                 }
 
-                PrepActionButtons(caseDescription: caseDescription, prep: prep)
+                PrepActionButtons(caseDescription: caseDescription, prep: prep) {
+                    isShowingNotes = true
+                }
             }
             .padding()
         }
@@ -39,6 +43,19 @@ struct PrepView: View {
         .navigationTitle(prep.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(removing: .title)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingNotes = true
+                } label: {
+                    Image(systemName: "note.text")
+                }
+                .accessibilityLabel("My Notes")
+            }
+        }
+        .sheet(isPresented: $isShowingNotes) {
+            CaseNotesSheet(caseDescription: caseDescription, caseTitle: prep.title)
+        }
     }
 }
 

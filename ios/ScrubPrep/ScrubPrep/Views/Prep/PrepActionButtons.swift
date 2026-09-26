@@ -1,9 +1,13 @@
 import SwiftUI
 
-/// "Pimp Me" / "Rapid Fire" launch buttons at the bottom of an OR Prep.
+/// "Pimp Me" / "Rapid Fire" launch buttons and the My Notes button at the bottom of an
+/// OR Prep.
 struct PrepActionButtons: View {
     let caseDescription: String
     let prep: ORPrep
+    /// Presents the My Notes sheet — owned by `PrepView`, which also opens it from the
+    /// toolbar.
+    let onShowNotes: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
@@ -26,6 +30,14 @@ struct PrepActionButtons: View {
                     .padding(.vertical, 4)
             }
             .buttonStyle(.bordered)
+
+            Button(action: onShowNotes) {
+                Label("My Notes", systemImage: "note.text")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.bordered)
         }
         .padding(.top, 8)
     }
@@ -33,6 +45,6 @@ struct PrepActionButtons: View {
 
 #Preview {
     NavigationStack {
-        PrepActionButtons(caseDescription: "Lap chole for acute cholecystitis", prep: .mockLapChole)
+        PrepActionButtons(caseDescription: "Lap chole for acute cholecystitis", prep: .mockLapChole, onShowNotes: {})
     }
 }

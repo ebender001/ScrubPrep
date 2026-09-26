@@ -67,6 +67,7 @@ final class CasesListViewModel {
             // localizedStandardContains is case- and diacritic-insensitive.
             return scrubCase.prep.title.localizedStandardContains(query)
                 || scrubCase.caseDescription.localizedStandardContains(query)
+                || (scrubCase.notes?.localizedStandardContains(query) ?? false)
         }
         switch sortOrder {
         case .newestFirst:

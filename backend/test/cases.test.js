@@ -69,6 +69,7 @@ test("listCasesForOwner maps Parse objects to plain case objects", async () => {
       updatedAt: obj.updatedAt.toISOString(),
       lastReviewedAt: null,
       specialty: null,
+      notes: "",
     },
   ]);
 });
@@ -95,6 +96,21 @@ test("upsertCase sets the specialty when provided and keeps the existing one whe
     { fetchCaseObject: async () => created, newCaseObject: () => assert.fail("should not create a new object") }
   );
   assert.deepEqual(resaved.specialty, { id: "sp1", name: "General Surgery" });
+});
+
+test("updateCaseNotes sets notes on the owned case, and returns null when not found/owned", async () => {
+  const obj = fakeCaseObject({ caseDescription: "Lap chole" });
+  const result = await cases.updateCaseNotes(
+    { caseId: obj.id, owner: fakeOwner("user1"), notes: "Attending likes CVS called out" },
+    { fetchOwnedCaseById: async () => obj }
+  );
+  assert.equal(result.notes, "Attending likes CVS called out");
+
+  const missing = await cases.updateCaseNotes(
+    { caseId: "nope", owner: fakeOwner("user1"), notes: "x" },
+    { fetchOwnedCaseById: async () => null }
+  );
+  assert.equal(missing, null);
 });
 
 test("markCaseReviewed returns null when the case isn't found/owned", async () => {

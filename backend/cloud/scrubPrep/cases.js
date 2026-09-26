@@ -27,6 +27,9 @@ function serializeCase(obj) {
     // Pointer<Specialty> the case was prepared under — null for cases saved before this
     // field existed, or prepared with no specialty selected.
     specialty: specialty ? { id: specialty.id, name: specialty.get("name") } : null,
+    // The student's own free-text notes on this case ("" when none). Untouched by
+    // upsertCase, so re-preparing the same case keeps them.
+    notes: obj.get("notes") || "",
     createdAt: obj.createdAt.toISOString(),
     updatedAt: obj.updatedAt.toISOString(),
     lastReviewedAt: lastReviewedAt ? lastReviewedAt.toISOString() : null,
@@ -131,6 +134,22 @@ async function markCaseReviewed({ caseId, owner }, deps = {}) {
 }
 
 /**
+ * Replaces the case's notes. An empty string clears them.
+ *
+ * @param {{ caseId: string, owner: Parse.User, notes: string }} params
+ * @param {{ fetchOwnedCaseById?: typeof fetchOwnedCaseById }} [deps]
+ * @returns {Promise<object|null>} the updated case, or null if it wasn't found/owned.
+ */
+async function updateCaseNotes({ caseId, owner, notes }, deps = {}) {
+  const fetch = deps.fetchOwnedCaseById || fetchOwnedCaseById;
+  const scrubCase = await fetch({ caseId, owner });
+  if (!scrubCase) return null;
+  scrubCase.set("notes", notes);
+  await scrubCase.save(null, { useMasterKey: true });
+  return serializeCase(scrubCase);
+}
+
+/**
  * Deletes the case and cascades to any completed Pimp Me sessions for the same
  * (owner, normalizedDescription) — an orphaned session for a case that no longer
  * exists serves no purpose.
@@ -161,5 +180,6 @@ module.exports = {
   upsertCase,
   listCasesForOwner,
   markCaseReviewed,
+  updateCaseNotes,
   deleteCase,
 };

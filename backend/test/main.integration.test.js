@@ -272,6 +272,54 @@ test("listCases/saveCase/markCaseReviewed/deleteCase require a signed-in user", 
     assert.equal(err.code, 209);
     return true;
   });
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: "x", notes: "" }, user: undefined }),
+    (err) => {
+      assert.equal(err.code, 209);
+      return true;
+    }
+  );
+});
+
+test("saveCaseNotes saves, survives re-saving the case, clears with empty, and is owner-scoped", async () => {
+  const owner = await fakeUser();
+  const saved = await registry.saveCase({
+    params: { caseDescription: "Open AAA repair", prep: { title: "Open AAA Repair" } },
+    user: owner,
+  });
+  assert.equal(saved.case.notes, "");
+
+  const withNotes = await registry.saveCaseNotes({
+    params: { caseId: saved.case.id, notes: "Ask about clamp times" },
+    user: owner,
+  });
+  assert.equal(withNotes.case.notes, "Ask about clamp times");
+
+  // Re-preparing the same case keeps its notes.
+  const resaved = await registry.saveCase({
+    params: { caseDescription: "open aaa repair", prep: { title: "Open AAA Repair v2" } },
+    user: owner,
+  });
+  assert.equal(resaved.case.notes, "Ask about clamp times");
+
+  const cleared = await registry.saveCaseNotes({ params: { caseId: saved.case.id, notes: "" }, user: owner });
+  assert.equal(cleared.case.notes, "");
+
+  const otherUser = await fakeUser();
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: saved.case.id, notes: "x" }, user: otherUser }),
+    (err) => {
+      assert.equal(err.code, 101);
+      return true;
+    }
+  );
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: saved.case.id }, user: owner }),
+    (err) => {
+      assert.equal(err.code, 141);
+      return true;
+    }
+  );
 });
 
 test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp Me sessions)", async () => {

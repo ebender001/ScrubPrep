@@ -38,6 +38,11 @@ final class CaseHistoryStore {
         try await service.markCaseReviewed(caseId: scrubCase.id)
     }
 
+    @discardableResult
+    func saveNotes(_ notes: String, for scrubCase: ScrubCase) async throws -> ScrubCase {
+        try await service.saveCaseNotes(caseId: scrubCase.id, notes: notes)
+    }
+
     func delete(_ scrubCase: ScrubCase) async throws {
         try await service.deleteCase(caseId: scrubCase.id)
     }

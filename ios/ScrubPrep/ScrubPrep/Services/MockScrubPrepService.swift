@@ -252,6 +252,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
                 caseDescription: caseDescription,
                 prep: prep,
                 specialty: specialty ?? existing.specialty,
+                notes: existing.notes,
                 createdAt: existing.createdAt,
                 updatedAt: Date(),
                 lastReviewedAt: nil
@@ -281,10 +282,31 @@ final class MockScrubPrepService: ScrubPrepServicing {
             caseDescription: existing.caseDescription,
             prep: existing.prep,
             specialty: existing.specialty,
+            notes: existing.notes,
             createdAt: existing.createdAt,
             updatedAt: existing.updatedAt,
             lastReviewedAt: Date()
         )
+    }
+
+    func saveCaseNotes(caseId: String, notes: String) async throws -> ScrubCase {
+        try await Task.sleep(nanoseconds: 100_000_000)
+        guard let index = mockCases.firstIndex(where: { $0.id == caseId }) else {
+            throw ScrubPrepError.server
+        }
+        let existing = mockCases[index]
+        let updated = ScrubCase(
+            id: existing.id,
+            caseDescription: existing.caseDescription,
+            prep: existing.prep,
+            specialty: existing.specialty,
+            notes: notes,
+            createdAt: existing.createdAt,
+            updatedAt: Date(),
+            lastReviewedAt: existing.lastReviewedAt
+        )
+        mockCases[index] = updated
+        return updated
     }
 
     func deleteCase(caseId: String) async throws {

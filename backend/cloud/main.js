@@ -37,6 +37,7 @@ function withUsageTracking(functionName, request) {
 }
 
 const MAX_CASE_DESCRIPTION_LENGTH = 300;
+const MAX_CASE_NOTES_LENGTH = 10000;
 const MAX_ANSWER_LENGTH = 2000;
 const MAX_PREVIOUS_QUESTIONS = 50;
 const MAX_PREVIOUS_QUESTION_LENGTH = 500;
@@ -411,6 +412,30 @@ Parse.Cloud.define(
       throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, "This case was not found.");
     }
     return { success: true };
+  })
+);
+
+Parse.Cloud.define(
+  "saveCaseNotes",
+  safeHandler(async (request) => {
+    const user = requireUser(request);
+    const caseId = requireNonEmptyString(request.params.caseId, "caseId");
+    // Unlike most params, empty is valid here — it clears the notes.
+    const { notes } = request.params;
+    if (typeof notes !== "string") {
+      throw new Parse.Error(Parse.Error.VALIDATION_ERROR, "notes is required.");
+    }
+    if (notes.length > MAX_CASE_NOTES_LENGTH) {
+      throw new Parse.Error(
+        Parse.Error.VALIDATION_ERROR,
+        `notes must be ${MAX_CASE_NOTES_LENGTH} characters or fewer.`
+      );
+    }
+    const updated = await cases.updateCaseNotes({ caseId, owner: user, notes });
+    if (!updated) {
+      throw new Parse.Error(Parse.Error.OBJECT_NOT_FOUND, "This case was not found.");
+    }
+    return { case: updated };
   })
 );
 
