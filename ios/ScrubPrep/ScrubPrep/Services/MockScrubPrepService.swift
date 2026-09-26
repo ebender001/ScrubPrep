@@ -228,6 +228,11 @@ final class MockScrubPrepService: ScrubPrepServicing {
     private var mockCases: [ScrubCase] = []
     private var mockPimpMeSessions: [PimpMeSession] = []
 
+    /// `cases` seeds the in-memory case list — used by previews that need saved cases.
+    init(cases: [ScrubCase] = []) {
+        mockCases = cases
+    }
+
     func listCases() async throws -> [ScrubCase] {
         try await Task.sleep(nanoseconds: 200_000_000)
         return mockCases.sorted { $0.updatedAt > $1.updatedAt }
