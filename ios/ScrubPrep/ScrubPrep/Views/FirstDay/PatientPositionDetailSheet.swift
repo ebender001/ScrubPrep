@@ -27,25 +27,7 @@ struct PatientPositionDetailSheet: View {
                 }
 
                 ForEach(position.diagrams) { diagram in
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let caption = diagram.caption {
-                            Text(caption)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                        }
-                        // Template-rendered line art, so it follows the text color in
-                        // light and dark mode.
-                        Image(diagram.assetName)
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 16))
-                            .accessibilityLabel(
-                                "\(diagram.caption.map { "\($0) diagram" } ?? "Diagram") of the \(position.name) position"
-                            )
-                    }
+                    LearnDiagramView(diagram: diagram, subject: "the \(position.name) position")
                 }
 
                 Text(position.description)

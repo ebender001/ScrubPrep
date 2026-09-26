@@ -3,28 +3,6 @@
 
 import Foundation
 
-/// One diagram of a position — `caption` labels the view ("Side view", "Overhead view")
-/// when a position has more than one; `nil` for a position with a single diagram.
-struct PositionDiagram: Identifiable {
-    let id = UUID()
-    /// Assets.xcassets image set name — single-color SVG, rendered as a template.
-    let assetName: String
-    let caption: String?
-
-    init(_ assetName: String, caption: String? = nil) {
-        self.assetName = assetName
-        self.caption = caption
-    }
-
-    /// A side view plus an overhead view, captioned.
-    static func sideAndOverhead(_ baseName: String) -> [PositionDiagram] {
-        [
-            PositionDiagram(baseName, caption: "Side view"),
-            PositionDiagram("\(baseName)-overhead", caption: "Overhead view"),
-        ]
-    }
-}
-
 /// One patient position in the Positioning reference (Learn tab). `alternateNames` are
 /// other names you'll hear for it (`nil` if none). Written for recognition and
 /// discussion — deliberately not step-by-step positioning protocols.
@@ -43,7 +21,7 @@ struct PatientPosition: Identifiable {
     let howYouCanHelp: [String]
     let questions: [QAPair]
     /// Empty until diagrams have been added for the position.
-    let diagrams: [PositionDiagram]
+    let diagrams: [LearnDiagram]
 }
 
 let patientPositions: [PatientPosition] = [
@@ -81,7 +59,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "Abducting the arm further stretches the brachial plexus, which can cause a nerve injury."
             ),
         ],
-        diagrams: PositionDiagram.sideAndOverhead("position-supine")
+        diagrams: LearnDiagram.sideAndOverhead("position-supine")
     ),
     PatientPosition(
         name: "Trendelenburg",
@@ -117,7 +95,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "The abdominal contents push the diaphragm up, so the lungs are stiffer and airway pressures rise."
             ),
         ],
-        diagrams: [PositionDiagram("position-trendelenburg")]
+        diagrams: [LearnDiagram("position-trendelenburg")]
     ),
     PatientPosition(
         name: "Reverse Trendelenburg",
@@ -150,7 +128,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "It tends to fall, because blood pools in the legs and less returns to the heart."
             ),
         ],
-        diagrams: [PositionDiagram("position-reverse-trendelenburg")]
+        diagrams: [LearnDiagram("position-reverse-trendelenburg")]
     ),
     PatientPosition(
         name: "Lithotomy",
@@ -188,7 +166,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "Moving them separately can strain the hips and lower back, and lowering them quickly can drop the blood pressure suddenly."
             ),
         ],
-        diagrams: PositionDiagram.sideAndOverhead("position-lithotomy")
+        diagrams: LearnDiagram.sideAndOverhead("position-lithotomy")
     ),
     PatientPosition(
         name: "Lateral decubitus",
@@ -224,7 +202,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "The upper (non-dependent) lung, while the lower lung gets more blood flow, creating a ventilation-perfusion mismatch."
             ),
         ],
-        diagrams: PositionDiagram.sideAndOverhead("position-lateral-decubitus")
+        diagrams: LearnDiagram.sideAndOverhead("position-lateral-decubitus")
     ),
     PatientPosition(
         name: "Prone",
@@ -261,7 +239,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "Postoperative vision loss — from direct pressure on the eye or from ischemic optic neuropathy in long cases."
             ),
         ],
-        diagrams: PositionDiagram.sideAndOverhead("position-prone")
+        diagrams: LearnDiagram.sideAndOverhead("position-prone")
     ),
     PatientPosition(
         name: "Fowler's",
@@ -298,7 +276,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "It tends to fall, because blood pools in the legs and less returns to the heart."
             ),
         ],
-        diagrams: [PositionDiagram("position-fowlers")]
+        diagrams: [LearnDiagram("position-fowlers")]
     ),
     PatientPosition(
         name: "Semi-Fowler's",
@@ -328,7 +306,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "It reduces the risk of aspiration and ventilator-associated pneumonia."
             ),
         ],
-        diagrams: [PositionDiagram("position-semi-fowlers")]
+        diagrams: [LearnDiagram("position-semi-fowlers")]
     ),
     PatientPosition(
         name: "Beach chair",
@@ -358,7 +336,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "The brain is above the heart, so the pressure reaching it is lower than what's measured at the arm — hypotension can cause stroke or vision loss."
             ),
         ],
-        diagrams: [PositionDiagram("position-beach-chair")]
+        diagrams: [LearnDiagram("position-beach-chair")]
     ),
     PatientPosition(
         name: "Jackknife",
@@ -387,7 +365,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "Anorectal procedures — it lifts and opens the buttocks for exposure of the anus and perianal area."
             ),
         ],
-        diagrams: [PositionDiagram("position-jackknife")]
+        diagrams: [LearnDiagram("position-jackknife")]
     ),
     PatientPosition(
         name: "Frog-leg",
@@ -413,7 +391,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "During saphenous vein harvest for coronary bypass, and for perineal or genital procedures."
             ),
         ],
-        diagrams: PositionDiagram.sideAndOverhead("position-frog-leg")
+        diagrams: LearnDiagram.sideAndOverhead("position-frog-leg")
     ),
 ]
 

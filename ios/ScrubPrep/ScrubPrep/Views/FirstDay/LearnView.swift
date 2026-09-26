@@ -58,6 +58,16 @@ struct LearnView: View {
                             systemImage: "bed.double"
                         )
                     }
+
+                    NavigationLink {
+                        IncisionsView()
+                    } label: {
+                        LearnRow(
+                            title: "Incisions",
+                            subtitle: "Common incisions, what they're for, and what's underneath.",
+                            systemImage: "bandage"
+                        )
+                    }
                 }
             }
             .navigationTitle("Learn")
