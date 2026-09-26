@@ -38,6 +38,16 @@ struct LearnView: View {
                             systemImage: "character.book.closed.fill"
                         )
                     }
+
+                    NavigationLink {
+                        EnergyDevicesView()
+                    } label: {
+                        LearnRow(
+                            title: "Energy devices",
+                            subtitle: "Bovie, bipolar, vessel sealers, and what each is for.",
+                            systemImage: "bolt"
+                        )
+                    }
                 }
             }
             .navigationTitle("Learn")
