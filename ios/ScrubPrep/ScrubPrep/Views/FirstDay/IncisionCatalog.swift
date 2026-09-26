@@ -1,6 +1,5 @@
-// CLINICAL REVIEW NEEDED: every anatomic landmark, nerve/structure-at-risk, measurement,
-// and complication statement below should be checked by someone with surgical training
-// before release.
+// Clinically reviewed 2026-09-26. Re-review any new or changed numeric, anatomic, or
+// safety-critical statement before release.
 
 import Foundation
 
