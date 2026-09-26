@@ -19,10 +19,14 @@ function normalizeDescription(text) {
 // other Cloud Function response in this app has ever included a Date field before).
 function serializeCase(obj) {
   const lastReviewedAt = obj.get("lastReviewedAt");
+  const specialty = obj.get("specialty");
   return {
     id: obj.id,
     caseDescription: obj.get("caseDescription"),
     prep: obj.get("prep") || null,
+    // Pointer<Specialty> the case was prepared under — null for cases saved before this
+    // field existed, or prepared with no specialty selected.
+    specialty: specialty ? { id: specialty.id, name: specialty.get("name") } : null,
     createdAt: obj.createdAt.toISOString(),
     updatedAt: obj.updatedAt.toISOString(),
     lastReviewedAt: lastReviewedAt ? lastReviewedAt.toISOString() : null,
@@ -33,6 +37,7 @@ async function fetchCaseObject({ owner, normalizedDescription }) {
   const query = new Parse.Query("ScrubCase");
   query.equalTo("owner", owner);
   query.equalTo("normalizedDescription", normalizedDescription);
+  query.include("specialty");
   return query.first({ useMasterKey: true });
 }
 
@@ -40,6 +45,7 @@ async function fetchCasesForOwner(owner) {
   const query = new Parse.Query("ScrubCase");
   query.equalTo("owner", owner);
   query.descending("updatedAt");
+  query.include("specialty");
   query.limit(200);
   return query.find({ useMasterKey: true });
 }
@@ -48,7 +54,19 @@ async function fetchOwnedCaseById({ caseId, owner }) {
   const query = new Parse.Query("ScrubCase");
   query.equalTo("objectId", caseId);
   query.equalTo("owner", owner);
+  query.include("specialty");
   return query.first({ useMasterKey: true });
+}
+
+/** @returns {Promise<Parse.Object|null>} the Specialty row, or null if it doesn't exist. */
+async function fetchSpecialtyById(specialtyId) {
+  const query = new Parse.Query("Specialty");
+  try {
+    return await query.get(specialtyId, { useMasterKey: true });
+  } catch (err) {
+    if (err && err.code === Parse.Error.OBJECT_NOT_FOUND) return null;
+    throw err;
+  }
 }
 
 function newCaseObject() {
@@ -61,10 +79,13 @@ function newCaseObject() {
  * already saved for them — updates and re-dates that existing row instead. Never
  * duplicates.
  *
- * @param {{ owner: Parse.User, caseDescription: string, prep: object }} params
+ * `specialty` (a fetched Specialty object) is only written when provided, so re-saving a
+ * case without one keeps whatever specialty it was originally prepared under.
+ *
+ * @param {{ owner: Parse.User, caseDescription: string, prep: object, specialty?: Parse.Object|null }} params
  * @param {{ fetchCaseObject?: typeof fetchCaseObject, newCaseObject?: typeof newCaseObject }} [deps]
  */
-async function upsertCase({ owner, caseDescription, prep }, deps = {}) {
+async function upsertCase({ owner, caseDescription, prep, specialty }, deps = {}) {
   const fetch = deps.fetchCaseObject || fetchCaseObject;
   const createNew = deps.newCaseObject || newCaseObject;
   const normalizedDescription = normalizeDescription(caseDescription);
@@ -75,6 +96,9 @@ async function upsertCase({ owner, caseDescription, prep }, deps = {}) {
   scrubCase.set("caseDescription", caseDescription);
   scrubCase.set("normalizedDescription", normalizedDescription);
   scrubCase.set("prep", prep || null);
+  if (specialty) {
+    scrubCase.set("specialty", specialty);
+  }
   if (existing) {
     scrubCase.set("lastReviewedAt", null);
   }
@@ -133,6 +157,7 @@ module.exports = {
   fetchCaseObject,
   fetchCasesForOwner,
   fetchOwnedCaseById,
+  fetchSpecialtyById,
   upsertCase,
   listCasesForOwner,
   markCaseReviewed,

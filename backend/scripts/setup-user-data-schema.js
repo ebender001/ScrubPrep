@@ -29,6 +29,7 @@ const SCHEMAS = [
       caseDescription: { type: "String" },
       normalizedDescription: { type: "String" },
       prep: { type: "Object" },
+      specialty: { type: "Pointer", targetClass: "Specialty" },
       lastReviewedAt: { type: "Date" },
     },
   },

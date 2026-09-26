@@ -86,6 +86,7 @@ nonisolated private struct SaveCaseRequest: ParseCloudable {
     var functionJobName = "saveCase"
     let caseDescription: String
     let prep: ORPrep
+    let specialtyId: String?
 }
 
 nonisolated private struct MarkCaseReviewedRequest: ParseCloudable {
@@ -150,9 +151,10 @@ struct ParseScrubPrepService: ScrubPrepServicing {
         try await run { try await ListCasesRequest().runFunction().cases }
     }
 
-    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+    func saveCase(caseDescription: String, prep: ORPrep, specialtyId: String?) async throws -> ScrubCase {
         try await run {
-            try await SaveCaseRequest(caseDescription: caseDescription, prep: prep).runFunction().case
+            try await SaveCaseRequest(caseDescription: caseDescription, prep: prep, specialtyId: specialtyId)
+                .runFunction().case
         }
     }
 

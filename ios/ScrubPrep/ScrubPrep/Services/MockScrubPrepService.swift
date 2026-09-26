@@ -233,7 +233,11 @@ final class MockScrubPrepService: ScrubPrepServicing {
         return mockCases.sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+    func saveCase(caseDescription: String, prep: ORPrep, specialtyId: String?) async throws -> ScrubCase {
+        // Mirrors the backend: only the id/name are embedded, and omitting a specialty
+        // keeps the one the case was originally saved under.
+        let specialty = specialtyId.flatMap { id in MockScrubPrepService.mockSpecialties.first { $0.id == id } }
+            .map { Specialty(id: $0.id, name: $0.name) }
         try await Task.sleep(nanoseconds: 200_000_000)
         let normalized = ScrubCase.normalize(caseDescription)
         if let index = mockCases.firstIndex(where: { ScrubCase.normalize($0.caseDescription) == normalized }) {
@@ -242,6 +246,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
                 id: existing.id,
                 caseDescription: caseDescription,
                 prep: prep,
+                specialty: specialty ?? existing.specialty,
                 createdAt: existing.createdAt,
                 updatedAt: Date(),
                 lastReviewedAt: nil
@@ -253,6 +258,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
             id: UUID().uuidString,
             caseDescription: caseDescription,
             prep: prep,
+            specialty: specialty,
             createdAt: Date(),
             updatedAt: Date(),
             lastReviewedAt: nil
@@ -269,6 +275,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
             id: existing.id,
             caseDescription: existing.caseDescription,
             prep: existing.prep,
+            specialty: existing.specialty,
             createdAt: existing.createdAt,
             updatedAt: existing.updatedAt,
             lastReviewedAt: Date()

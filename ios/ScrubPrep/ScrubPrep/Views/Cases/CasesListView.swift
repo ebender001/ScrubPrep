@@ -24,9 +24,19 @@ struct CasesListView: View {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(scrubCase.prep.title)
                                         .font(.subheadline.weight(.semibold))
-                                    Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 8) {
+                                        Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        if let specialty = scrubCase.specialty {
+                                            Text(specialty.name)
+                                                .font(.caption2.weight(.medium))
+                                                .lineLimit(1)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                        }
+                                    }
                                 }
                                 // Ensures the whole row (not just the text's own tight
                                 // bounding box) is tappable, all the way to the chevron.

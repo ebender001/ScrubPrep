@@ -30,8 +30,8 @@ final class CaseHistoryStore {
     /// saved — updates and re-dates that existing entry instead (enforced server-side;
     /// see backend/cloud/scrubPrep/cases.js). Never duplicates.
     @discardableResult
-    func addOrUpdate(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
-        try await service.saveCase(caseDescription: caseDescription, prep: prep)
+    func addOrUpdate(caseDescription: String, prep: ORPrep, specialty: Specialty?) async throws -> ScrubCase {
+        try await service.saveCase(caseDescription: caseDescription, prep: prep, specialtyId: specialty?.id)
     }
 
     func markReviewed(_ scrubCase: ScrubCase) async throws {

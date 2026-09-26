@@ -291,7 +291,7 @@ final class HomeViewModel {
 
                 let prep = try await service.generatePrep(caseDescription: trimmed)
                 guard !Task.isCancelled, requestID == currentRequestID else { return }
-                _ = try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep)
+                _ = try? await historyStore.addOrUpdate(caseDescription: trimmed, prep: prep, specialty: selectedSpecialty)
                 isGenerating = false
                 isPreparingComplimentaryCase = false
                 preparedCaseDescription = trimmed

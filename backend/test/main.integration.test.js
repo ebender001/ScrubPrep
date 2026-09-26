@@ -570,6 +570,27 @@ test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name, w
   ]);
 });
 
+test("saveCase stores the selected specialty and listCases returns it; an unknown specialtyId is ignored", async () => {
+  const owner = await fakeUser();
+  const generalSurgery = specialtiesByName["General Surgery"];
+
+  const saved = await registry.saveCase({
+    params: { caseDescription: "Appendectomy", prep: { title: "Appendectomy" }, specialtyId: generalSurgery.id },
+    user: owner,
+  });
+  assert.deepEqual(saved.case.specialty, { id: generalSurgery.id, name: "General Surgery" });
+
+  const unknown = await registry.saveCase({
+    params: { caseDescription: "Mystery case", prep: { title: "Mystery" }, specialtyId: "does-not-exist" },
+    user: owner,
+  });
+  assert.equal(unknown.case.specialty, null);
+
+  const listed = await registry.listCases({ params: {}, user: owner });
+  const appendectomy = listed.cases.find((c) => c.caseDescription === "Appendectomy");
+  assert.deepEqual(appendectomy.specialty, { id: generalSurgery.id, name: "General Surgery" });
+});
+
 test("answerPimpQuestion returns a clean error for an unknown session", async () => {
   await assert.rejects(
     () => registry.answerPimpQuestion({ params: { sessionId: "does_not_exist", answer: "x" } }),

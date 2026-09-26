@@ -381,8 +381,14 @@ Parse.Cloud.define(
       "caseDescription",
       MAX_CASE_DESCRIPTION_LENGTH
     );
-    const { prep: prepContext } = request.params;
-    const savedCase = await cases.upsertCase({ owner: user, caseDescription, prep: prepContext });
+    const { prep: prepContext, specialtyId } = request.params;
+    // Optional — an unknown/missing specialtyId just saves the case without one rather
+    // than failing the save (the prep itself is what matters here).
+    const specialty =
+      typeof specialtyId === "string" && specialtyId.trim().length > 0
+        ? await cases.fetchSpecialtyById(specialtyId.trim())
+        : null;
+    const savedCase = await cases.upsertCase({ owner: user, caseDescription, prep: prepContext, specialty });
 
     // The complimentary allowance is marked used HERE, not in generateScrubPrep — only
     // once the case this generation produced has actually been durably saved. A failed

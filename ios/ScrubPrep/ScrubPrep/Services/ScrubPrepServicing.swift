@@ -13,7 +13,7 @@ protocol ScrubPrepServicing {
     // Cases and Pimp Me sessions are backend-authoritative (not stored on the device) —
     // every one of these requires a signed-in user server-side.
     func listCases() async throws -> [ScrubCase]
-    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase
+    func saveCase(caseDescription: String, prep: ORPrep, specialtyId: String?) async throws -> ScrubCase
     func markCaseReviewed(caseId: String) async throws
     func deleteCase(caseId: String) async throws
     func listPimpMeSessions(caseDescription: String) async throws -> [PimpMeSession]
