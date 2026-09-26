@@ -298,7 +298,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "It tends to fall, because blood pools in the legs and less returns to the heart."
             ),
         ],
-        diagrams: []
+        diagrams: [PositionDiagram("position-fowlers")]
     ),
     PatientPosition(
         name: "Semi-Fowler's",
@@ -328,7 +328,7 @@ let patientPositions: [PatientPosition] = [
                 answer: "It reduces the risk of aspiration and ventilator-associated pneumonia."
             ),
         ],
-        diagrams: []
+        diagrams: [PositionDiagram("position-semi-fowlers")]
     ),
     PatientPosition(
         name: "Beach chair",
