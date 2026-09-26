@@ -1,6 +1,6 @@
 import Foundation
 
-/// Persists the last-fetched specialty list so the Home screen's specialty row can render
+/// Persists the last-fetched specialty list so the Home screen's specialty menu can render
 /// instantly on launch instead of waiting on a network round-trip every time.
 enum SpecialtyCache {
     private static let key = "cachedSpecialties.v1"

@@ -11,16 +11,55 @@ struct CaseEntryCard: View {
 
     private var isSpecialtySelected: Bool { selectedSpecialty != nil }
 
+    /// Doubles as the instructions and the specialty-specific example, so the student
+    /// sees what to enter right where they type. No example (generic or otherwise)
+    /// before a specialty is selected.
+    private var placeholder: String {
+        guard let selectedSpecialty else { return "Select a specialty first" }
+        let example = selectedSpecialty.displayedExampleCaseDescription
+        return exampleChips.isEmpty
+            ? "e.g. \(example)"
+            : "Type a case or tap one below, e.g. \(example)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("What are you scrubbing on?")
                 .font(.title3.weight(.semibold))
 
-            if !exampleChips.isEmpty {
-                Text("Example cases — tap to use as-is, add to it, or create your own")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            TextField(
+                placeholder,
+                text: $caseDescription,
+                axis: .vertical
+            )
+            .lineLimit(3...)
+            .focused($isFocused)
+            .disabled(!isSpecialtySelected)
+            .padding(10)
+            .padding(.trailing, caseDescription.isEmpty ? 0 : 24)
+            // Solid fill plus a border so the field reads as tappable against the card's
+            // translucent material.
+            .background(Color(.systemBackground), in: .rect(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(isFocused ? Color.accentColor : Color(.separator), lineWidth: 1)
+            }
+            .opacity(isSpecialtySelected ? 1 : 0.6)
+            .overlay(alignment: .topTrailing) {
+                if !caseDescription.isEmpty {
+                    Button {
+                        caseDescription = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(10)
+                    .accessibilityLabel("Clear")
+                }
+            }
 
+            if !exampleChips.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(exampleChips) { chip in
@@ -39,56 +78,6 @@ struct CaseEntryCard: View {
                 }
             }
 
-            // Shown above the text box (rather than below) so it explains what to enter
-            // before the student starts typing. Specialty-specific, and only shown once a
-            // specialty is selected — no example (generic or otherwise) on a fresh launch.
-            if let selectedSpecialty {
-                Text("e.g. \u{201C}\(selectedSpecialty.displayedExampleCaseDescription)\u{201D}")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            TextField(
-                isSpecialtySelected ? "Enter an operation or case" : "Select a specialty above first",
-                text: $caseDescription,
-                axis: .vertical
-            )
-            .lineLimit(3...)
-            .focused($isFocused)
-            .disabled(!isSpecialtySelected)
-            .padding(8)
-            .padding(.trailing, caseDescription.isEmpty ? 0 : 24)
-            .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
-            .opacity(isSpecialtySelected ? 1 : 0.6)
-            .overlay(alignment: .topTrailing) {
-                if !caseDescription.isEmpty {
-                    Button {
-                        caseDescription = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(10)
-                    .accessibilityLabel("Clear")
-                }
-            }
-
-            // Reads as helpful guidance, not a second heading — secondary color and a
-            // medium (not bold) weight keep it clearly subordinate to the card title.
-            Text("Include important context, such as recurrent disease or redo surgery.")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            // Routine privacy guidance, not an error — no warning color.
-            Label {
-                Text("Don't include patient-identifying information.")
-            } icon: {
-                Image(systemName: "lock.shield")
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-
             Button(action: {
                 isFocused = false
                 onSubmit()
@@ -100,6 +89,15 @@ struct CaseEntryCard: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(!isSpecialtySelected || caseDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            // Routine privacy guidance, not an error — no warning color.
+            Label {
+                Text("No patient-identifying information")
+            } icon: {
+                Image(systemName: "lock.shield")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding()
         .background(.thinMaterial, in: .rect(cornerRadius: 20))

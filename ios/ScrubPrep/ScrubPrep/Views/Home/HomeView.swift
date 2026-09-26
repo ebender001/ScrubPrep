@@ -16,14 +16,6 @@ struct HomeView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    if !viewModel.specialties.isEmpty {
-                        SpecialtyRow(
-                            specialties: viewModel.specialties,
-                            selectedSpecialty: viewModel.selectedSpecialty,
-                            onSelect: viewModel.selectSpecialty
-                        )
-                    }
-
                     CaseEntryCard(
                         caseDescription: $viewModel.caseDescription,
                         exampleChips: viewModel.exampleChips,
@@ -33,6 +25,9 @@ struct HomeView: View {
 
                     VStack(spacing: 12) {
                         Button {
+                            // No `.disabled` — the card keeps full color and its trailing
+                            // lock icon signals the locked state; `startPimpMe()` no-ops
+                            // until the current case is prepared.
                             viewModel.startPimpMe()
                         } label: {
                             ActionCard(
@@ -41,14 +36,16 @@ struct HomeView: View {
                                 description: "Interactive questions tailored to your case.",
                                 systemImage: "flame.fill",
                                 tint: .orange,
-                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
+                                isLocked: !viewModel.isCurrentCasePrepared,
+                                lockedMessage: "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!viewModel.isCurrentCasePrepared)
-                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         Button {
+                            // No `.disabled` — the card keeps full color and its trailing
+                            // lock icon signals the locked state; `startRapidFire()` no-ops
+                            // until the current case is prepared.
                             viewModel.startRapidFire()
                         } label: {
                             ActionCard(
@@ -57,12 +54,11 @@ struct HomeView: View {
                                 description: "Five high-yield questions. No lengthy explanations.",
                                 systemImage: "bolt.fill",
                                 tint: .yellow,
-                                lockedMessage: viewModel.isCurrentCasePrepared ? nil : "Unlocks after Prepare Me"
+                                isLocked: !viewModel.isCurrentCasePrepared,
+                                lockedMessage: "Unlocks after Prepare Me"
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(!viewModel.isCurrentCasePrepared)
-                        .opacity(viewModel.isCurrentCasePrepared ? 1 : 0.5)
 
                         NavigationLink(value: HomeRoute.firstDay) {
                             ActionCard(
@@ -89,6 +85,17 @@ struct HomeView: View {
                 .animation(.easeInOut(duration: 0.3), value: viewModel.selectedSpecialty)
             }
             .navigationTitle("Scrub Prep")
+            .toolbar {
+                if !viewModel.specialties.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        SpecialtyMenu(
+                            specialties: viewModel.specialties,
+                            selectedSpecialty: viewModel.selectedSpecialty,
+                            onSelect: viewModel.selectSpecialty
+                        )
+                    }
+                }
+            }
             .task {
                 viewModel.attach(subscriptionManager: subscriptionManager)
                 await viewModel.loadCases()

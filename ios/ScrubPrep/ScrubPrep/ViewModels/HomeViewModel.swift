@@ -38,7 +38,7 @@ final class HomeViewModel {
     private(set) var recentCases: [ScrubCase] = []
 
     // No specialty is selected on first launch — the case-entry card shows no quick-pick
-    // chips until the user picks one from the specialty row (spec: specialty selection is
+    // chips until the user picks one from the specialty menu (spec: specialty selection is
     // the first step, not a default). Kept as full CaseType values (not just names) so the
     // chip can show the short name while inserting fullName into the text field on tap.
     var exampleChips: [CaseType] = []
@@ -152,7 +152,7 @@ final class HomeViewModel {
     }
 
     /// Fetches the full case type catalog used to filter quick-picks once a specialty is
-    /// selected. Failure is silent — the specialty row still works for browsing, it just
+    /// selected. Failure is silent — the specialty menu still works for browsing, it just
     /// won't be able to show matching quick-picks (spec: never let a decorative fetch
     /// block or error out the primary "prepare a case" flow).
     private func loadCaseTypes() {

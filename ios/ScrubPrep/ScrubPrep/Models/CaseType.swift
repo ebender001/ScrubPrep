@@ -1,7 +1,7 @@
 import Foundation
 
 /// A specialty from the server-side catalog (see backend/cloud/scrubPrep/specialties.js),
-/// shown as a filter row on the Home screen.
+/// shown as a filter menu on the Home screen.
 // `nonisolated`: see ORPrep's note — these cross actor boundaries as ParseCloudable
 // ReturnTypes/nested payloads decoded on ParseSwift's background executor.
 nonisolated struct Specialty: Codable, Identifiable {
