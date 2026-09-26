@@ -92,7 +92,7 @@ final class AuthViewModel {
     /// includes on the very first authorization ever for this app — every later sign-in
     /// omits it. Captured best-effort right now (silently, no "check your inbox" alert —
     /// Apple's own Face ID/Touch ID auth already establishes identity trust, so
-    /// re-verifying that email would just be redundant) purely so About can show "Signed
+    /// re-verifying that email would just be redundant) purely so Settings can show "Signed
     /// in as ___" instead of the generic fallback; if this save fails, or if the user
     /// picked "Hide My Email" so it's an Apple private-relay address, either is fine.
     func signInWithApple(userIdentifier: String, identityToken: Data, email: String?) async {
@@ -149,7 +149,7 @@ final class AuthViewModel {
     }
 
     /// Permanently deletes the account and everything saved under it (see
-    /// backend/cloud/scrubPrep/account.js). Returns whether it succeeded — AboutView owns
+    /// backend/cloud/scrubPrep/account.js). Returns whether it succeeded — SettingsView owns
     /// its own progress/error state rather than using `isLoading`/`errorMessage`, which
     /// belong to SignInView and would otherwise show up there stale after a failure. On
     /// success the server has already deleted the session, so `User.logout()` will fail —

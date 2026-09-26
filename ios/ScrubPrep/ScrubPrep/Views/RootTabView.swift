@@ -1,10 +1,10 @@
 import SwiftUI
 
 private enum RootTab: Hashable {
-    case home, cases, learn, about
+    case home, cases, learn, settings
 }
 
-/// Bottom tab bar: Home | Cases | Learn | About (spec §3).
+/// Bottom tab bar: Home | Cases | Learn | Settings (spec §3).
 struct RootTabView: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(\.scenePhase) private var scenePhase
@@ -24,8 +24,8 @@ struct RootTabView: View {
                 LearnView()
             }
 
-            Tab("About", systemImage: "info.circle.fill", value: RootTab.about) {
-                AboutView()
+            Tab("Settings", systemImage: "gearshape.fill", value: RootTab.settings) {
+                SettingsView()
             }
         }
         // Only ever shown once signed in, so this is exactly "refresh on sign-in and on

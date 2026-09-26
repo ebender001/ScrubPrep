@@ -20,7 +20,7 @@ final class SubscriptionManager {
     static let quarterlyProductID = "dev.benderapps.ScrubPrep.subscription.quarterly"
     static let productIDs = [monthlyProductID, quarterlyProductID]
 
-    /// What AboutView shows for "current plan" — built from the verified `Transaction`
+    /// What SettingsView shows for "current plan" — built from the verified `Transaction`
     /// StoreKit says is currently entitling this account, plus (best-effort) the
     /// matching `Product.SubscriptionInfo` for a human-readable renewal/cancellation
     /// state. Never persisted; recomputed fresh every time `refreshEntitlements()` runs.
