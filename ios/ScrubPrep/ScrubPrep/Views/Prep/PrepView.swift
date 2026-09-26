@@ -4,6 +4,8 @@ import SwiftUI
 struct PrepView: View {
     let caseDescription: String
     let prep: ORPrep
+    /// Lets a presenting list (Cases) refresh its row after notes are saved here.
+    var onNotesSaved: ((ScrubCase) -> Void)?
 
     @State private var isShowingNotes = false
 
@@ -54,7 +56,7 @@ struct PrepView: View {
             }
         }
         .sheet(isPresented: $isShowingNotes) {
-            CaseNotesSheet(caseDescription: caseDescription, caseTitle: prep.title)
+            CaseNotesSheet(caseDescription: caseDescription, caseTitle: prep.title, onSaved: onNotesSaved)
         }
     }
 }

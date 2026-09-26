@@ -65,6 +65,10 @@ nonisolated struct ScrubCase: Codable, Identifiable, Hashable {
         self.lastReviewedAtRaw = lastReviewedAt.map(Self.isoFormatter.string)
     }
 
+    var hasNotes: Bool {
+        !(notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     static func normalize(_ text: String) -> String {
         text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

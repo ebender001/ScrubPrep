@@ -4,14 +4,22 @@ import SwiftUI
 /// toolbar icon. Edits a draft; nothing is saved until Save is tapped.
 struct CaseNotesSheet: View {
     let caseTitle: String
+    /// Called with the updated case after a successful save.
+    var onSaved: ((ScrubCase) -> Void)?
 
     @State private var viewModel: CaseNotesViewModel
     @State private var isShowingError = false
     @FocusState private var isEditorFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(caseDescription: String, caseTitle: String, viewModel: CaseNotesViewModel? = nil) {
+    init(
+        caseDescription: String,
+        caseTitle: String,
+        viewModel: CaseNotesViewModel? = nil,
+        onSaved: ((ScrubCase) -> Void)? = nil
+    ) {
         self.caseTitle = caseTitle
+        self.onSaved = onSaved
         _viewModel = State(initialValue: viewModel ?? CaseNotesViewModel(caseDescription: caseDescription))
     }
 
@@ -31,7 +39,10 @@ struct CaseNotesSheet: View {
                         } else {
                             Button("Save") {
                                 Task {
-                                    if await viewModel.save() { dismiss() }
+                                    if let updated = await viewModel.save() {
+                                        onSaved?(updated)
+                                        dismiss()
+                                    }
                                 }
                             }
                             .disabled(viewModel.loadState != .loaded || !viewModel.hasChanges)

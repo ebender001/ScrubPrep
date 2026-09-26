@@ -30,8 +30,12 @@ struct CasesListView: View {
             }
             .navigationTitle("Cases")
             .navigationDestination(for: ScrubCase.self) { scrubCase in
-                PrepView(caseDescription: scrubCase.caseDescription, prep: scrubCase.prep)
-                    .task { await viewModel.markReviewed(scrubCase) }
+                PrepView(
+                    caseDescription: scrubCase.caseDescription,
+                    prep: scrubCase.prep,
+                    onNotesSaved: viewModel.replace
+                )
+                .task { await viewModel.markReviewed(scrubCase) }
             }
             .toolbar {
                 if !viewModel.cases.isEmpty {
@@ -107,6 +111,14 @@ struct CasesListView: View {
                     }
                 }
             }
+
+            if viewModel.anyCaseHasNotes {
+                Section("Notes") {
+                    Toggle(isOn: $viewModel.hasNotesFilter) {
+                        Label("Has notes", systemImage: "note.text")
+                    }
+                }
+            }
         } label: {
             Image(systemName: viewModel.isFiltering
                   ? "line.3.horizontal.decrease.circle.fill"
@@ -128,7 +140,8 @@ struct CasesListView: View {
     }
 }
 
-/// One Cases list row: prep title, then the created date and specialty chip.
+/// One Cases list row: prep title, then the created date (plus a note glyph when the case
+/// has notes) and specialty chip.
 private struct CaseRow: View {
     let scrubCase: ScrubCase
 
@@ -137,9 +150,17 @@ private struct CaseRow: View {
             Text(scrubCase.prep.title)
                 .font(.subheadline.weight(.semibold))
             HStack(spacing: 8) {
-                Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    Text(scrubCase.createdAt, format: .dateTime.month(.abbreviated).day().year())
+                    if scrubCase.hasNotes {
+                        Text("·")
+                            .accessibilityHidden(true)
+                        Image(systemName: "note.text")
+                            .accessibilityLabel("Has notes")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if let specialty = scrubCase.specialty {
                     Text(specialty.name)
                         .font(.caption2.weight(.medium))
@@ -175,6 +196,7 @@ private extension CasesListViewModel {
                 caseDescription: entry.prep.title,
                 prep: entry.prep,
                 specialty: entry.specialty,
+                notes: index == 0 ? "Call out the critical view before clipping." : nil,
                 createdAt: date,
                 updatedAt: date,
                 lastReviewedAt: nil

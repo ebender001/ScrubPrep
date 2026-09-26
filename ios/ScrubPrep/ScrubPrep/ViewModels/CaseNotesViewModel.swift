@@ -48,20 +48,21 @@ final class CaseNotesViewModel {
         }
     }
 
-    /// Returns whether the save succeeded, so the sheet only dismisses on success.
-    func save() async -> Bool {
-        guard let scrubCase else { return false }
+    /// Returns the updated case, or `nil` if the save failed — the sheet only dismisses
+    /// on success.
+    func save() async -> ScrubCase? {
+        guard let scrubCase else { return nil }
         isSaving = true
         defer { isSaving = false }
         do {
             let updated = try await historyStore.saveNotes(draft, for: scrubCase)
             self.scrubCase = updated
             savedNotes = updated.notes ?? ""
-            return true
+            return updated
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Scrub Prep wasn't able to save your notes. Please try again."
-            return false
+            return nil
         }
     }
 }

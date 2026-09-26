@@ -32,6 +32,8 @@ final class CasesListViewModel {
     /// `Specialty.id` to filter by, or `nil` for all specialties. Not persisted — filters
     /// reset on launch; only the sort order is remembered.
     var specialtyFilter: String?
+    /// Show only cases with notes. Not persisted, like `specialtyFilter`.
+    var hasNotesFilter = false
 
     private let historyStore: CaseHistoryStore
 
@@ -49,7 +51,9 @@ final class CasesListViewModel {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    var isFiltering: Bool { specialtyFilter != nil }
+    var anyCaseHasNotes: Bool { cases.contains(where: \.hasNotes) }
+
+    var isFiltering: Bool { specialtyFilter != nil || hasNotesFilter }
 
     var trimmedSearchText: String {
         searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,6 +65,9 @@ final class CasesListViewModel {
         let query = trimmedSearchText
         let filtered = cases.filter { scrubCase in
             if let specialtyFilter, scrubCase.specialty?.id != specialtyFilter {
+                return false
+            }
+            if hasNotesFilter, !scrubCase.hasNotes {
                 return false
             }
             guard !query.isEmpty else { return true }
@@ -81,6 +88,7 @@ final class CasesListViewModel {
 
     func clearFilters() {
         specialtyFilter = nil
+        hasNotesFilter = false
     }
 
     func load() async {
@@ -88,12 +96,20 @@ final class CasesListViewModel {
         errorMessage = nil
         do {
             cases = try await historyStore.listAll()
-            dropStaleSpecialtyFilter()
+            dropStaleFilters()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Scrub Prep wasn't able to load your cases. Please try again."
         }
         isLoading = false
+    }
+
+    /// Swaps in a case updated elsewhere (e.g. notes saved from its prep screen) without
+    /// a full reload.
+    func replace(_ updated: ScrubCase) {
+        guard let index = cases.firstIndex(where: { $0.id == updated.id }) else { return }
+        cases[index] = updated
+        dropStaleFilters()
     }
 
     func markReviewed(_ scrubCase: ScrubCase) async {
@@ -109,7 +125,7 @@ final class CasesListViewModel {
                 do {
                     try await historyStore.delete(target)
                     cases.removeAll { $0.id == target.id }
-                    dropStaleSpecialtyFilter()
+                    dropStaleFilters()
                 } catch {
                     errorMessage = (error as? LocalizedError)?.errorDescription
                         ?? "Scrub Prep wasn't able to delete this case. Please try again."
@@ -118,12 +134,14 @@ final class CasesListViewModel {
         }
     }
 
-    /// Clears the specialty filter once no remaining case has that specialty, so the
-    /// menu's picker never points at an option it no longer lists.
-    private func dropStaleSpecialtyFilter() {
-        guard let specialtyFilter else { return }
-        if !cases.contains(where: { $0.specialty?.id == specialtyFilter }) {
+    /// Clears a filter once no remaining case matches it, so the menu never has an option
+    /// checked that it no longer lists.
+    private func dropStaleFilters() {
+        if let specialtyFilter, !cases.contains(where: { $0.specialty?.id == specialtyFilter }) {
             self.specialtyFilter = nil
+        }
+        if hasNotesFilter, !anyCaseHasNotes {
+            hasNotesFilter = false
         }
     }
 }
