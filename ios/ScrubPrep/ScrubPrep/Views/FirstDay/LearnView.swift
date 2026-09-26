@@ -6,58 +6,63 @@ struct LearnView: View {
     var body: some View {
         NavigationStack {
             List {
-                NavigationLink {
-                    FirstDayView()
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("First Day?")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Rounds, scrubbing, OR etiquette, and presentations.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(.blue)
+                Section("Getting Started") {
+                    NavigationLink {
+                        FirstDayView()
+                    } label: {
+                        LearnRow(
+                            title: "First day in the OR",
+                            subtitle: "Rounds, scrubbing, OR etiquette, and presentations.",
+                            systemImage: "sparkles"
+                        )
                     }
                 }
 
-                NavigationLink {
-                    InstrumentsView()
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Instruments 101")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Common instruments and what they're used for.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "scissors")
-                            .foregroundStyle(.teal)
+                Section("Reference") {
+                    NavigationLink {
+                        InstrumentsView()
+                    } label: {
+                        LearnRow(
+                            title: "Instruments 101",
+                            subtitle: "Common instruments and what they're used for.",
+                            systemImage: "scissors"
+                        )
                     }
-                }
 
-                NavigationLink {
-                    AbbreviationsView()
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Abbreviations")
-                                .font(.subheadline.weight(.semibold))
-                            Text("Common OR and surgical shorthand.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "character.book.closed.fill")
-                            .foregroundStyle(.indigo)
+                    NavigationLink {
+                        AbbreviationsView()
+                    } label: {
+                        LearnRow(
+                            title: "Abbreviations",
+                            subtitle: "Common OR and surgical shorthand.",
+                            systemImage: "character.book.closed.fill"
+                        )
                     }
                 }
             }
             .navigationTitle("Learn")
+        }
+    }
+}
+
+/// One Learn tab row: an accent-tinted icon beside a title and one-line description.
+private struct LearnRow: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(Color.accentColor)
         }
     }
 }
