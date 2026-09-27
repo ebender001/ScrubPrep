@@ -18,6 +18,9 @@ final class CaseNotesViewModel {
     private(set) var isSaving = false
     var draft = ""
     var errorMessage: String?
+    /// Likely patient identifiers found in the draft on the last save attempt — the save
+    /// is blocked (nothing is sent) while this is non-empty.
+    var phiFindings: [PHIDetector.Finding] = []
 
     private let caseDescription: String
     private let historyStore: CaseHistoryStore
@@ -52,6 +55,12 @@ final class CaseNotesViewModel {
     /// on success.
     func save() async -> ScrubCase? {
         guard let scrubCase else { return nil }
+        // Checked on-device so a note with likely PHI never leaves the phone.
+        let findings = PHIDetector.findings(in: draft)
+        guard findings.isEmpty else {
+            phiFindings = findings
+            return nil
+        }
         isSaving = true
         defer { isSaving = false }
         do {

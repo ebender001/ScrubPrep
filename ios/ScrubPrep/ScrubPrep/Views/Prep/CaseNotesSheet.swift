@@ -64,6 +64,30 @@ struct CaseNotesSheet: View {
         .onChange(of: isShowingError) { _, isShowing in
             if !isShowing { viewModel.errorMessage = nil }
         }
+        .alert("Patient Information Detected", isPresented: isShowingPHIAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(phiAlertMessage)
+        }
+    }
+
+    private var isShowingPHIAlert: Binding<Bool> {
+        Binding(
+            get: { !viewModel.phiFindings.isEmpty },
+            set: { isShowing in
+                if !isShowing { viewModel.phiFindings = [] }
+            }
+        )
+    }
+
+    private var phiAlertMessage: String {
+        let lines = viewModel.phiFindings.map { finding in
+            let matches = finding.matches.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", ")
+            return "\u{2022} \(finding.kind): \(matches)"
+        }
+        return "This note can't be saved because it may contain patient-identifying information:\n\n"
+            + lines.joined(separator: "\n")
+            + "\n\nRemove it and try again."
     }
 
     @ViewBuilder
