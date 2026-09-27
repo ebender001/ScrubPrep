@@ -1,4 +1,4 @@
-    // Clinically reviewed 2026-09-26. Re-review any new or changed numeric, anatomic, or
+// Clinically reviewed 2026-09-26. Re-review any new or changed numeric, anatomic, or
 // safety-critical statement before release.
 
 import Foundation
