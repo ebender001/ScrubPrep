@@ -403,10 +403,22 @@ section .section-lede {
   line-height: 0;
 }
 
-.phone-frame img {
+.phone-frame img,
+.phone-frame video {
   display: block;
   width: 100%;
   height: auto;
+}
+
+/* Featured explainer video above the screenshots, one phone wide. */
+.explainer {
+  max-width: 320px;
+  margin: 0 auto 48px;
+}
+
+.phone-frame video {
+  aspect-ratio: 9 / 16;
+  background: var(--ink);
 }
 
 .screen-caption {
