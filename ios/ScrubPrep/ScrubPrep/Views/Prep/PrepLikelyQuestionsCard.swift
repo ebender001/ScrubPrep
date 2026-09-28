@@ -1,13 +1,14 @@
 import SwiftUI
 
 /// The "Likely questions" card at the bottom of an OR Prep — omitted entirely when the
-/// prep has none.
+/// prep has none. Also reused by Learn reference screens under their own `title`.
 struct PrepLikelyQuestionsCard: View {
+    var title = "Likely questions"
     let questions: [QAPair]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("Likely questions", systemImage: "bubble.left.and.bubble.right")
+            Label(title, systemImage: "bubble.left.and.bubble.right")
                 .font(.headline)
             ForEach(questions) { qa in
                 VStack(alignment: .leading, spacing: 3) {

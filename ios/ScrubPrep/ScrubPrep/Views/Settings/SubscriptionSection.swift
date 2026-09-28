@@ -1,10 +1,10 @@
 import StoreKit
 import SwiftUI
 
-/// The Subscription section of the About screen — current plan, subscribe/manage link,
+/// The Subscription section of the Settings list — current plan, subscribe/manage row,
 /// and Restore Purchases. Fully self-contained: owns its own paywall sheet and restore
 /// alert rather than coordinating that state through its parent.
-struct SubscriptionCard: View {
+struct SubscriptionSection: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @State private var showPaywall = false
     @State private var isRestoring = false
@@ -12,42 +12,34 @@ struct SubscriptionCard: View {
     @State private var isShowingRestoreResult = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Subscription")
-                .font(.headline)
-            if let planName = currentPlanName {
-                Text(planName)
-                    .font(.subheadline.weight(.medium))
+        Section("Subscription") {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(currentPlanName ?? "Scrub Prep")
+                    .font(.body.weight(.medium))
+                Text(subscriptionStatusLine)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            Text(subscriptionStatusLine)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
 
             if subscriptionManager.hasActiveSubscription {
-                Link("Manage Subscription", destination: Self.manageSubscriptionsURL)
-                    .font(.subheadline.weight(.medium))
-            } else {
-                Button("Subscribe") {
-                    showPaywall = true
+                Link(destination: Self.manageSubscriptionsURL) {
+                    SettingsRowLabel("Manage Subscription", systemImage: "creditcard", isExternal: true)
                 }
-                .font(.subheadline.weight(.medium))
+            } else {
+                Button {
+                    showPaywall = true
+                } label: {
+                    SettingsRowLabel("Subscribe", systemImage: "star")
+                }
             }
 
             Button {
                 restorePurchases()
             } label: {
-                if isRestoring {
-                    ProgressView()
-                } else {
-                    Text("Restore Purchases")
-                }
+                SettingsRowLabel("Restore Purchases", systemImage: "arrow.clockwise", isInProgress: isRestoring)
             }
-            .font(.subheadline.weight(.medium))
             .disabled(isRestoring)
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: .rect(cornerRadius: 16))
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
@@ -111,7 +103,8 @@ struct SubscriptionCard: View {
 }
 
 #Preview {
-    SubscriptionCard()
-        .environment(SubscriptionManager())
-        .padding()
+    List {
+        SubscriptionSection()
+    }
+    .environment(SubscriptionManager())
 }

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The paywall — shown when `HomeViewModel.resolvePrep` determines (entirely
 /// client-side, before any AI request) that a new case needs a subscription, or opened
-/// directly from About/Home for someone who wants to subscribe proactively. Never
+/// directly from Settings/Home for someone who wants to subscribe proactively. Never
 /// mentions the complimentary case — this screen exists to sell the subscription, not
 /// explain the free-case mechanic.
 ///

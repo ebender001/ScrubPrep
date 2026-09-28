@@ -4,10 +4,21 @@ import SwiftUI
 struct PrepView: View {
     let caseDescription: String
     let prep: ORPrep
+    /// Lets a presenting list (Cases) refresh its row after notes are saved here.
+    var onNotesSaved: ((ScrubCase) -> Void)?
+
+    @State private var isShowingNotes = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                // Shown here, where it can wrap, instead of in the nav bar — long procedure
+                // names (e.g. "Thrombectomy for Acute Limb Ischemia") truncate there.
+                Text(prep.title)
+                    .font(.title2.weight(.bold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+
                 Text(prep.caseSummary)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -23,12 +34,30 @@ struct PrepView: View {
                     PrepLikelyQuestionsCard(questions: prep.likelyQuestions)
                 }
 
-                PrepActionButtons(caseDescription: caseDescription, prep: prep)
+                PrepActionButtons(caseDescription: caseDescription, prep: prep) {
+                    isShowingNotes = true
+                }
             }
             .padding()
         }
+        // Still set so the back button's long-press history names this screen, but kept
+        // out of the bar itself since the full title is the first line of content.
         .navigationTitle(prep.title)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(removing: .title)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isShowingNotes = true
+                } label: {
+                    Image(systemName: "note.text")
+                }
+                .accessibilityLabel("My Notes")
+            }
+        }
+        .sheet(isPresented: $isShowingNotes) {
+            CaseNotesSheet(caseDescription: caseDescription, caseTitle: prep.title, onSaved: onNotesSaved)
+        }
     }
 }
 

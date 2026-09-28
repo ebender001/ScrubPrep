@@ -9,12 +9,18 @@ nonisolated struct ScrubCase: Codable, Identifiable, Hashable {
     let id: String
     let caseDescription: String
     let prep: ORPrep
+    /// The specialty selected when the case was prepared (`id`/`name` only). `nil` for
+    /// cases saved before the backend recorded it, or prepared with none selected.
+    let specialty: Specialty?
+    /// The student's own free-text notes ("My Notes"). `nil` from a backend that predates
+    /// the field; treat `nil` and "" the same.
+    let notes: String?
     private let createdAtRaw: String
     private let updatedAtRaw: String
     private let lastReviewedAtRaw: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, caseDescription, prep
+        case id, caseDescription, prep, specialty, notes
         case createdAtRaw = "createdAt"
         case updatedAtRaw = "updatedAt"
         case lastReviewedAtRaw = "lastReviewedAt"
@@ -39,13 +45,28 @@ nonisolated struct ScrubCase: Codable, Identifiable, Hashable {
     // The compiler-synthesized memberwise init would be `private` (it takes the least
     // accessible level of any stored property, and the raw date strings are private) —
     // this is the constructor other files (MockScrubPrepService, previews) actually use.
-    init(id: String, caseDescription: String, prep: ORPrep, createdAt: Date, updatedAt: Date, lastReviewedAt: Date?) {
+    init(
+        id: String,
+        caseDescription: String,
+        prep: ORPrep,
+        specialty: Specialty? = nil,
+        notes: String? = nil,
+        createdAt: Date,
+        updatedAt: Date,
+        lastReviewedAt: Date?
+    ) {
         self.id = id
         self.caseDescription = caseDescription
         self.prep = prep
+        self.specialty = specialty
+        self.notes = notes
         self.createdAtRaw = Self.isoFormatter.string(from: createdAt)
         self.updatedAtRaw = Self.isoFormatter.string(from: updatedAt)
         self.lastReviewedAtRaw = lastReviewedAt.map(Self.isoFormatter.string)
+    }
+
+    var hasNotes: Bool {
+        !(notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     static func normalize(_ text: String) -> String {

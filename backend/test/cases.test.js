@@ -68,8 +68,49 @@ test("listCasesForOwner maps Parse objects to plain case objects", async () => {
       createdAt: obj.createdAt.toISOString(),
       updatedAt: obj.updatedAt.toISOString(),
       lastReviewedAt: null,
+      specialty: null,
+      notes: "",
     },
   ]);
+});
+
+test("listCasesForOwner includes the case's specialty id and name when set", async () => {
+  const specialty = fakeCaseObject({ id: "sp1", name: "General Surgery" });
+  const obj = fakeCaseObject({ caseDescription: "Lap chole", specialty });
+  const [result] = await cases.listCasesForOwner(fakeOwner("user1"), { fetchCasesForOwner: async () => [obj] });
+  assert.deepEqual(result.specialty, { id: "sp1", name: "General Surgery" });
+});
+
+test("upsertCase sets the specialty when provided and keeps the existing one when omitted", async () => {
+  const owner = fakeOwner("user1");
+  const specialty = fakeCaseObject({ id: "sp1", name: "General Surgery" });
+  const created = fakeCaseObject({});
+  const saved = await cases.upsertCase(
+    { owner, caseDescription: "Lap chole", prep: {}, specialty },
+    { fetchCaseObject: async () => null, newCaseObject: () => created }
+  );
+  assert.deepEqual(saved.specialty, { id: "sp1", name: "General Surgery" });
+
+  const resaved = await cases.upsertCase(
+    { owner, caseDescription: "Lap chole", prep: {} },
+    { fetchCaseObject: async () => created, newCaseObject: () => assert.fail("should not create a new object") }
+  );
+  assert.deepEqual(resaved.specialty, { id: "sp1", name: "General Surgery" });
+});
+
+test("updateCaseNotes sets notes on the owned case, and returns null when not found/owned", async () => {
+  const obj = fakeCaseObject({ caseDescription: "Lap chole" });
+  const result = await cases.updateCaseNotes(
+    { caseId: obj.id, owner: fakeOwner("user1"), notes: "Attending likes CVS called out" },
+    { fetchOwnedCaseById: async () => obj }
+  );
+  assert.equal(result.notes, "Attending likes CVS called out");
+
+  const missing = await cases.updateCaseNotes(
+    { caseId: "nope", owner: fakeOwner("user1"), notes: "x" },
+    { fetchOwnedCaseById: async () => null }
+  );
+  assert.equal(missing, null);
 });
 
 test("markCaseReviewed returns null when the case isn't found/owned", async () => {

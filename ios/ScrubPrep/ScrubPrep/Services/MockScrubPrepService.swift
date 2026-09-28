@@ -228,12 +228,21 @@ final class MockScrubPrepService: ScrubPrepServicing {
     private var mockCases: [ScrubCase] = []
     private var mockPimpMeSessions: [PimpMeSession] = []
 
+    /// `cases` seeds the in-memory case list — used by previews that need saved cases.
+    init(cases: [ScrubCase] = []) {
+        mockCases = cases
+    }
+
     func listCases() async throws -> [ScrubCase] {
         try await Task.sleep(nanoseconds: 200_000_000)
         return mockCases.sorted { $0.updatedAt > $1.updatedAt }
     }
 
-    func saveCase(caseDescription: String, prep: ORPrep) async throws -> ScrubCase {
+    func saveCase(caseDescription: String, prep: ORPrep, specialtyId: String?) async throws -> ScrubCase {
+        // Mirrors the backend: only the id/name are embedded, and omitting a specialty
+        // keeps the one the case was originally saved under.
+        let specialty = specialtyId.flatMap { id in MockScrubPrepService.mockSpecialties.first { $0.id == id } }
+            .map { Specialty(id: $0.id, name: $0.name) }
         try await Task.sleep(nanoseconds: 200_000_000)
         let normalized = ScrubCase.normalize(caseDescription)
         if let index = mockCases.firstIndex(where: { ScrubCase.normalize($0.caseDescription) == normalized }) {
@@ -242,6 +251,8 @@ final class MockScrubPrepService: ScrubPrepServicing {
                 id: existing.id,
                 caseDescription: caseDescription,
                 prep: prep,
+                specialty: specialty ?? existing.specialty,
+                notes: existing.notes,
                 createdAt: existing.createdAt,
                 updatedAt: Date(),
                 lastReviewedAt: nil
@@ -253,6 +264,7 @@ final class MockScrubPrepService: ScrubPrepServicing {
             id: UUID().uuidString,
             caseDescription: caseDescription,
             prep: prep,
+            specialty: specialty,
             createdAt: Date(),
             updatedAt: Date(),
             lastReviewedAt: nil
@@ -269,10 +281,32 @@ final class MockScrubPrepService: ScrubPrepServicing {
             id: existing.id,
             caseDescription: existing.caseDescription,
             prep: existing.prep,
+            specialty: existing.specialty,
+            notes: existing.notes,
             createdAt: existing.createdAt,
             updatedAt: existing.updatedAt,
             lastReviewedAt: Date()
         )
+    }
+
+    func saveCaseNotes(caseId: String, notes: String) async throws -> ScrubCase {
+        try await Task.sleep(nanoseconds: 100_000_000)
+        guard let index = mockCases.firstIndex(where: { $0.id == caseId }) else {
+            throw ScrubPrepError.server
+        }
+        let existing = mockCases[index]
+        let updated = ScrubCase(
+            id: existing.id,
+            caseDescription: existing.caseDescription,
+            prep: existing.prep,
+            specialty: existing.specialty,
+            notes: notes,
+            createdAt: existing.createdAt,
+            updatedAt: Date(),
+            lastReviewedAt: existing.lastReviewedAt
+        )
+        mockCases[index] = updated
+        return updated
     }
 
     func deleteCase(caseId: String) async throws {

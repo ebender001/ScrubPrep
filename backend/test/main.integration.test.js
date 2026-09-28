@@ -272,6 +272,54 @@ test("listCases/saveCase/markCaseReviewed/deleteCase require a signed-in user", 
     assert.equal(err.code, 209);
     return true;
   });
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: "x", notes: "" }, user: undefined }),
+    (err) => {
+      assert.equal(err.code, 209);
+      return true;
+    }
+  );
+});
+
+test("saveCaseNotes saves, survives re-saving the case, clears with empty, and is owner-scoped", async () => {
+  const owner = await fakeUser();
+  const saved = await registry.saveCase({
+    params: { caseDescription: "Open AAA repair", prep: { title: "Open AAA Repair" } },
+    user: owner,
+  });
+  assert.equal(saved.case.notes, "");
+
+  const withNotes = await registry.saveCaseNotes({
+    params: { caseId: saved.case.id, notes: "Ask about clamp times" },
+    user: owner,
+  });
+  assert.equal(withNotes.case.notes, "Ask about clamp times");
+
+  // Re-preparing the same case keeps its notes.
+  const resaved = await registry.saveCase({
+    params: { caseDescription: "open aaa repair", prep: { title: "Open AAA Repair v2" } },
+    user: owner,
+  });
+  assert.equal(resaved.case.notes, "Ask about clamp times");
+
+  const cleared = await registry.saveCaseNotes({ params: { caseId: saved.case.id, notes: "" }, user: owner });
+  assert.equal(cleared.case.notes, "");
+
+  const otherUser = await fakeUser();
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: saved.case.id, notes: "x" }, user: otherUser }),
+    (err) => {
+      assert.equal(err.code, 101);
+      return true;
+    }
+  );
+  await assert.rejects(
+    () => registry.saveCaseNotes({ params: { caseId: saved.case.id }, user: owner }),
+    (err) => {
+      assert.equal(err.code, 141);
+      return true;
+    }
+  );
 });
 
 test("saveCase -> listCases -> markCaseReviewed -> deleteCase (cascading to Pimp Me sessions)", async () => {
@@ -568,6 +616,27 @@ test("listCaseTypes returns catalog rows sorted by specialty, sortOrder, name, w
     { name: "Appendectomy", fullName: "Appendectomy", specialty: { id: specialtiesByName["General Surgery"].id, name: "General Surgery" }, featured: true },
     { name: "CABG", fullName: "Coronary Artery Bypass Grafting", specialty: { id: specialtiesByName["Cardiac Surgery"].id, name: "Cardiac Surgery" }, featured: false },
   ]);
+});
+
+test("saveCase stores the selected specialty and listCases returns it; an unknown specialtyId is ignored", async () => {
+  const owner = await fakeUser();
+  const generalSurgery = specialtiesByName["General Surgery"];
+
+  const saved = await registry.saveCase({
+    params: { caseDescription: "Appendectomy", prep: { title: "Appendectomy" }, specialtyId: generalSurgery.id },
+    user: owner,
+  });
+  assert.deepEqual(saved.case.specialty, { id: generalSurgery.id, name: "General Surgery" });
+
+  const unknown = await registry.saveCase({
+    params: { caseDescription: "Mystery case", prep: { title: "Mystery" }, specialtyId: "does-not-exist" },
+    user: owner,
+  });
+  assert.equal(unknown.case.specialty, null);
+
+  const listed = await registry.listCases({ params: {}, user: owner });
+  const appendectomy = listed.cases.find((c) => c.caseDescription === "Appendectomy");
+  assert.deepEqual(appendectomy.specialty, { id: generalSurgery.id, name: "General Surgery" });
 });
 
 test("answerPimpQuestion returns a clean error for an unknown session", async () => {
