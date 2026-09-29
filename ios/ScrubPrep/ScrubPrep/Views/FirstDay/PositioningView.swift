@@ -39,6 +39,8 @@ struct PositioningView: View {
                 ForEach(positioningSafetyTopics) { topic in
                     SectionCard(title: topic.title, systemImage: topic.systemImage, items: topic.items)
                 }
+
+                LearnSourcesCard(sources: LearnSources.positioning)
             }
             .padding()
         }

@@ -42,6 +42,8 @@ struct IncisionsView: View {
                 ForEach(incisionGeneralTopics) { topic in
                     SectionCard(title: topic.title, systemImage: topic.systemImage, items: topic.items)
                 }
+
+                LearnSourcesCard(sources: LearnSources.incisions)
             }
             .padding()
         }

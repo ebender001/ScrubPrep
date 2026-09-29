@@ -16,6 +16,8 @@ struct RapidFireCardView: View {
             VStack(alignment: .leading, spacing: 16) {
                 RapidFireProgressHeader(currentIndex: currentIndex, totalCount: totalCount)
 
+                AIContentNote()
+
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Question \(currentIndex + 1)", systemImage: "bolt.fill")
                         .font(.caption.weight(.semibold))

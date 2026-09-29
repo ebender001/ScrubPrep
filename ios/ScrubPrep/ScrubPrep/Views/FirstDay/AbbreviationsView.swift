@@ -74,6 +74,8 @@ struct AbbreviationsView: View {
                 ForEach(abbreviationTopics) { topic in
                     SectionCard(title: topic.title, systemImage: topic.systemImage, items: topic.items)
                 }
+
+                LearnSourcesCard(sources: LearnSources.abbreviations)
             }
             .padding()
         }

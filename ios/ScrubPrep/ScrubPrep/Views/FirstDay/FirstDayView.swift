@@ -86,6 +86,8 @@ struct FirstDayView: View {
                 ForEach(firstDayTopics) { topic in
                     SectionCard(title: topic.title, systemImage: topic.systemImage, items: topic.items)
                 }
+
+                LearnSourcesCard(sources: LearnSources.firstDay)
             }
             .padding()
         }

@@ -69,6 +69,18 @@ struct LearnView: View {
                         )
                     }
                 }
+
+                Section {
+                    NavigationLink {
+                        LearnSourcesView()
+                    } label: {
+                        LearnRow(
+                            title: "Sources & References",
+                            subtitle: "Where this content comes from, with links.",
+                            systemImage: "books.vertical"
+                        )
+                    }
+                }
             }
             .navigationTitle("Learn")
         }

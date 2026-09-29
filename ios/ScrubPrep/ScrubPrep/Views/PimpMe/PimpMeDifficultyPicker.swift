@@ -19,6 +19,8 @@ struct PimpMeDifficultyPicker: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
+                AIContentNote()
+
                 VStack(spacing: 10) {
                     ForEach(PimpDifficulty.allCases) { level in
                         let isCompleted = completedDifficulties.contains(level)
