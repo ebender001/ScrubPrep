@@ -32,3 +32,12 @@ struct LearnDiagram: Identifiable {
         ]
     }
 }
+
+/// A citation for Learn content (App Store guideline 1.4.1: medical information must cite
+/// its sources). `detail` is the publisher/journal and year, shown under the title.
+struct LearnSource: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let url: URL
+}

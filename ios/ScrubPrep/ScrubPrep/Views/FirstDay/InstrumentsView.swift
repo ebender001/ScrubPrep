@@ -25,6 +25,8 @@ struct InstrumentsView: View {
                         selectedInstrument = instrument
                     }
                 }
+
+                LearnSourcesCard(sources: LearnSources.instruments)
             }
             .padding()
         }

@@ -23,6 +23,8 @@ struct PrepView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
+                AIContentNote()
+
                 SectionCard(title: "Why are we operating?", systemImage: "questionmark.circle", items: prep.whyOperating)
                 SectionCard(title: "Anatomy I need to know", systemImage: "figure.stand", items: prep.anatomy)
                 SectionCard(title: "Operation in 60 seconds", systemImage: "clock", items: prep.operationOverview)
