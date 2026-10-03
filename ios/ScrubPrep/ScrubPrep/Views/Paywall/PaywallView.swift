@@ -8,8 +8,9 @@ import SwiftUI
 /// explain the free-case mechanic.
 ///
 /// `onPurchaseCompleted` is called exactly once, right after StoreKit confirms an active
-/// entitlement — the presenter (HomeView) uses it to dismiss this sheet and resume
-/// whatever case-generation attempt triggered the paywall, exactly once.
+/// entitlement — from a purchase, a restore, or a redeemed offer code — and the presenter
+/// (HomeView) uses it to dismiss this sheet and resume whatever case-generation attempt
+/// triggered the paywall, exactly once.
 struct PaywallView: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
     @Environment(\.dismiss) private var dismiss
@@ -29,6 +30,10 @@ struct PaywallView: View {
     @State private var selectedProductID = SubscriptionManager.quarterlyProductID
     @State private var purchaseState: PurchaseState = .idle
     @State private var errorMessage: String?
+    @State private var isShowingOfferCodeRedemption = false
+    // Guards `onPurchaseCompleted` — a purchase can report success both through
+    // `subscribe()` and the entitlement-change observer below.
+    @State private var didCompletePurchase = false
 
     private var isBusy: Bool { purchaseState != .idle }
 
@@ -127,6 +132,14 @@ struct PaywallView: View {
                         .disabled(isBusy)
                         .frame(maxWidth: .infinity)
 
+                        Button("Have an offer code? Redeem it") {
+                            errorMessage = nil
+                            isShowingOfferCodeRedemption = true
+                        }
+                        .font(.subheadline)
+                        .disabled(isBusy)
+                        .frame(maxWidth: .infinity)
+
                         legalLinks
                     }
                 }
@@ -155,6 +168,21 @@ struct PaywallView: View {
             // is a fast local App Store Storefront call, not an expensive network round
             // trip — cheap enough to repeat every time this sheet appears.
             await subscriptionManager.loadProducts()
+        }
+        // Apple's own redemption sheet handles code entry, eligibility, and errors. Its
+        // completion doesn't say whether a code was redeemed, so re-check entitlements;
+        // the observer below completes the purchase if one became active.
+        .offerCodeRedemption(isPresented: $isShowingOfferCodeRedemption) { result in
+            Task { await subscriptionManager.refreshEntitlements() }
+            if case .failure = result {
+                errorMessage = "Couldn't open offer code redemption. Please try again."
+            }
+        }
+        // A redeemed code (or an Ask to Buy approval) can arrive through StoreKit's
+        // transaction updates a moment after its sheet closes rather than through
+        // `subscribe()`, so complete whenever a subscription becomes active while open.
+        .onChange(of: subscriptionManager.hasActiveSubscription) { _, isActive in
+            if isActive { completePurchase() }
         }
         // Falls back to whatever plan actually loaded if the preferred default
         // (quarterly) isn't among the loaded products — e.g. it's still stuck in
@@ -208,7 +236,7 @@ struct PaywallView: View {
                     purchaseState = .verifying
                     if subscriptionManager.hasActiveSubscription {
                         purchaseState = .idle
-                        onPurchaseCompleted()
+                        completePurchase()
                     } else {
                         purchaseState = .idle
                         errorMessage = "Your purchase went through, but we're still waiting on confirmation. This usually resolves in a moment — try again, or check Manage Subscription in Settings."
@@ -225,6 +253,12 @@ struct PaywallView: View {
         }
     }
 
+    private func completePurchase() {
+        guard !didCompletePurchase else { return }
+        didCompletePurchase = true
+        onPurchaseCompleted()
+    }
+
     private func restore() {
         errorMessage = nil
         purchaseState = .restoring
@@ -233,7 +267,7 @@ struct PaywallView: View {
                 try await subscriptionManager.restore()
                 purchaseState = .idle
                 if subscriptionManager.hasActiveSubscription {
-                    onPurchaseCompleted()
+                    completePurchase()
                 } else {
                     errorMessage = "No active subscription was found for this Apple ID."
                 }

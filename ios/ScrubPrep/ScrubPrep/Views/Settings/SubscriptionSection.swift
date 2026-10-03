@@ -2,7 +2,7 @@ import StoreKit
 import SwiftUI
 
 /// The Subscription section of the Settings list — current plan, subscribe/manage row,
-/// and Restore Purchases. Fully self-contained: owns its own paywall sheet and restore
+/// Restore Purchases, and Redeem Offer Code. Fully self-contained: owns its own paywall sheet and restore
 /// alert rather than coordinating that state through its parent.
 struct SubscriptionSection: View {
     @Environment(SubscriptionManager.self) private var subscriptionManager
@@ -10,6 +10,7 @@ struct SubscriptionSection: View {
     @State private var isRestoring = false
     @State private var restoreResultMessage: String?
     @State private var isShowingRestoreResult = false
+    @State private var isShowingOfferCodeRedemption = false
 
     var body: some View {
         Section("Subscription") {
@@ -19,6 +20,25 @@ struct SubscriptionSection: View {
                 Text(subscriptionStatusLine)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+            }
+            // Presentation modifiers live on this one always-present row, not the Section:
+            // inside a List, a Section's modifiers are applied to every row, which created a
+            // copy of each sheet per row and made the paywall dismiss itself on first tap.
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(onPurchaseCompleted: { showPaywall = false })
+            }
+            // Apple's sheet handles code entry and errors; afterwards, re-check entitlements so
+            // this row's plan and status update (the transaction listener also catches it).
+            .offerCodeRedemption(isPresented: $isShowingOfferCodeRedemption) { _ in
+                Task { await subscriptionManager.refreshEntitlements() }
+            }
+            .alert("Restore Purchases", isPresented: $isShowingRestoreResult) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(restoreResultMessage ?? "")
+            }
+            .onChange(of: restoreResultMessage) { _, newValue in
+                isShowingRestoreResult = newValue != nil
             }
 
             if subscriptionManager.hasActiveSubscription {
@@ -39,17 +59,14 @@ struct SubscriptionSection: View {
                 SettingsRowLabel("Restore Purchases", systemImage: "arrow.clockwise", isInProgress: isRestoring)
             }
             .disabled(isRestoring)
-        }
-        .sheet(isPresented: $showPaywall) {
-            PaywallView()
-        }
-        .alert("Restore Purchases", isPresented: $isShowingRestoreResult) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(restoreResultMessage ?? "")
-        }
-        .onChange(of: restoreResultMessage) { _, newValue in
-            isShowingRestoreResult = newValue != nil
+
+            // Shown to everyone: whether a current subscriber can use a given code depends
+            // on the offer's eligibility in App Store Connect, which Apple's sheet enforces.
+            Button {
+                isShowingOfferCodeRedemption = true
+            } label: {
+                SettingsRowLabel("Redeem Offer Code", systemImage: "ticket")
+            }
         }
     }
 
