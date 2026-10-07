@@ -32,6 +32,8 @@ struct RapidFireView: View {
                 totalCount: viewModel.questions.count,
                 isAnswerRevealed: viewModel.isAnswerRevealed,
                 isLastQuestion: viewModel.isLastQuestion,
+                caseTitle: viewModel.prep.title,
+                references: viewModel.prep.references,
                 onReveal: viewModel.revealAnswer,
                 onAdvance: viewModel.advance
             )

@@ -4,6 +4,7 @@ import SwiftUI
 /// review its transcript) and start.
 struct PimpMeDifficultyPicker: View {
     let prepTitle: String
+    let references: [PrepReference]?
     let completedDifficulties: Set<PimpDifficulty>
     let selectedDifficulty: PimpDifficulty
     let allDifficultiesCompleted: Bool
@@ -18,8 +19,6 @@ struct PimpMeDifficultyPicker: View {
                 Text("Interactive questions tailored to \(prepTitle). Pick how tough you want it.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-
-                AIContentNote()
 
                 VStack(spacing: 10) {
                     ForEach(PimpDifficulty.allCases) { level in
@@ -46,6 +45,11 @@ struct PimpMeDifficultyPicker: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
+
+                // In the footer with the references, as on Rapid Fire — above the
+                // difficulty rows, its tinted card read like another selectable option.
+                AIContentNote()
+                PrepReferencesCard(operationTitle: prepTitle, references: references)
             }
             .padding()
         }
@@ -55,6 +59,7 @@ struct PimpMeDifficultyPicker: View {
 #Preview {
     PimpMeDifficultyPicker(
         prepTitle: "Laparoscopic Cholecystectomy",
+        references: nil,
         completedDifficulties: [.easy],
         selectedDifficulty: .typical,
         allDifficultiesCompleted: false,

@@ -36,6 +36,7 @@ struct PimpMeView: View {
             } else {
                 PimpMeDifficultyPicker(
                     prepTitle: viewModel.prep.title,
+                    references: viewModel.prep.references,
                     completedDifficulties: viewModel.completedDifficulties,
                     selectedDifficulty: viewModel.difficulty,
                     allDifficultiesCompleted: allDifficultiesCompleted,
