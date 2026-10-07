@@ -22,6 +22,7 @@ Generate a JSON object with these fields:
 - complications: 3-5 short bullets on the major complications and why they happen.
 - must_know: exactly 5 short bullets — the single most important takeaways ("know these 5 things").
 - likely_questions: 4-6 question/answer pairs a student is commonly asked about this case, with concise answers.
+- reference_search_terms: 1-3 short search phrases (2-5 words each) a medical librarian would use to find a standard review article on this operation and the main condition it treats — e.g. "laparoscopic cholecystectomy", "acute cholecystitis". Plain terms only: never article titles, citations, authors, journals, or URLs. Use an empty list when recognized is false.
 
 Keep every bullet short and high-yield. No filler, no giant paragraphs.`;
 }

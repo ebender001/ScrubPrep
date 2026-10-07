@@ -9,6 +9,7 @@ const caseTypes = require("./scrubPrep/caseTypes");
 const specialties = require("./scrubPrep/specialties");
 const cases = require("./scrubPrep/cases");
 const prepCatalog = require("./scrubPrep/prepCatalog");
+const references = require("./scrubPrep/references");
 const pimpMeSessions = require("./scrubPrep/pimpMeSessions");
 const cleanup = require("./scrubPrep/cleanup");
 const aiClient = require("./scrubPrep/aiClient");
@@ -158,7 +159,21 @@ Parse.Cloud.define(
     // per-owner and exists for a different reason).
     const normalizedDescription = prepCatalog.normalizeDescription(caseDescription);
     const cached = await prepCatalog.getCachedPrep(normalizedDescription);
-    if (cached) return cached;
+    if (cached) {
+      // Entries cached before references existed get them the first time they're served,
+      // searched by title (they have no search terms), without regenerating the prep.
+      if (!Array.isArray(cached.references)) {
+        const lookup = await references.findReferences(
+          { caseTitle: cached.title, terms: cached.reference_search_terms },
+          withUsageTracking("selectReferences", request)
+        );
+        if (lookup.ok) {
+          cached.references = lookup.references;
+          await prepCatalog.upsertCatalogEntry({ caseDescription, normalizedDescription, prep: cached });
+        }
+      }
+      return cached;
+    }
 
     // Whether this request is even allowed to reach here (active subscription, or an
     // unused complimentary case) is decided entirely client-side via StoreKit 2 — see
@@ -167,6 +182,13 @@ Parse.Cloud.define(
     // tradeoff.
     try {
       const result = await prep.generatePrep(caseDescription, withUsageTracking("generateScrubPrep", request));
+      const lookup = await references.findReferences(
+        { caseTitle: result.title, terms: result.reference_search_terms },
+        withUsageTracking("selectReferences", request)
+      );
+      // A failed lookup is left unset (not an empty list) so it's retried the next time
+      // this cached prep is served.
+      if (lookup.ok) result.references = lookup.references;
       await prepCatalog.upsertCatalogEntry({ caseDescription, normalizedDescription, prep: result });
       return result;
     } catch (err) {

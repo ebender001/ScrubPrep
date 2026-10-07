@@ -24,6 +24,7 @@ const PREP_JSON_SCHEMA = {
     complications: { type: "array", items: { type: "string" } },
     must_know: { type: "array", items: { type: "string" } },
     likely_questions: { type: "array", items: LIKELY_QUESTION_ITEM },
+    reference_search_terms: { type: "array", items: { type: "string" } },
   },
   required: [
     "recognized",
@@ -36,6 +37,7 @@ const PREP_JSON_SCHEMA = {
     "complications",
     "must_know",
     "likely_questions",
+    "reference_search_terms",
   ],
   additionalProperties: false,
 };
@@ -145,6 +147,11 @@ function validatePrep(obj) {
   }
   if (!isQAArray(obj.likely_questions) || obj.likely_questions.length === 0) {
     throw new Error("Prep response missing or invalid likely_questions.");
+  }
+  // Supplementary (feeds references.js only), so lenient: anything malformed becomes an
+  // empty list rather than failing the whole prep.
+  if (!isStringArray(obj.reference_search_terms)) {
+    obj.reference_search_terms = [];
   }
   return obj;
 }
