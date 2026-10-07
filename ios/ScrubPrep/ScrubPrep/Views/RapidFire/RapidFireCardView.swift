@@ -8,6 +8,8 @@ struct RapidFireCardView: View {
     let totalCount: Int
     let isAnswerRevealed: Bool
     let isLastQuestion: Bool
+    let caseTitle: String
+    let references: [PrepReference]?
     let onReveal: () -> Void
     let onAdvance: () -> Void
 
@@ -15,8 +17,6 @@ struct RapidFireCardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 RapidFireProgressHeader(currentIndex: currentIndex, totalCount: totalCount)
-
-                AIContentNote()
 
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Question \(currentIndex + 1)", systemImage: "bolt.fill")
@@ -55,6 +55,11 @@ struct RapidFireCardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
+
+                // Disclosure and references together as one "verify this" footer, so each
+                // question leads the card.
+                AIContentNote()
+                PrepReferencesCard(operationTitle: caseTitle, references: references)
             }
             .padding()
         }
@@ -68,6 +73,8 @@ struct RapidFireCardView: View {
         totalCount: 5,
         isAnswerRevealed: false,
         isLastQuestion: false,
+        caseTitle: "Laparoscopic Cholecystectomy",
+        references: nil,
         onReveal: {},
         onAdvance: {}
     )

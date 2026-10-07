@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Discloses that a screen's medical content is AI-generated and points to the cited
-/// Learn sources (App Store guideline 1.4.1). Must be shown inside a NavigationStack.
+/// Discloses that a screen's medical content is AI-generated (App Store guideline 1.4.1).
+/// Each screen showing it also shows the case's `PrepReferencesCard`, which cites the
+/// operation itself.
 struct AIContentNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -13,12 +14,6 @@ struct AIContentNote: View {
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            NavigationLink {
-                LearnSourcesView()
-            } label: {
-                Text("Sources & References")
-                    .font(.caption.weight(.semibold))
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -27,8 +22,6 @@ struct AIContentNote: View {
 }
 
 #Preview {
-    NavigationStack {
-        AIContentNote()
-            .padding()
-    }
+    AIContentNote()
+        .padding()
 }

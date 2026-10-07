@@ -187,6 +187,15 @@ https.request = (_options, callback) => {
   return { on: () => {}, write: () => {}, end: () => {} };
 };
 
+// NCBI lookups (references.js) get their own stub so they never reach the network or
+// consume the OpenAI response queue above. Tests replace `ncbiResponses` as needed.
+let ncbiResponses = { esearch: { esearchresult: { idlist: [] } }, esummary: { result: { uids: [] } } };
+require("../cloud/scrubPrep/references").spacingMs = () => 0;
+require("../cloud/scrubPrep/references").httpsGet = async (path) => ({
+  statusCode: 200,
+  body: JSON.stringify(path.includes("esearch") ? ncbiResponses.esearch : ncbiResponses.esummary),
+});
+
 require("../cloud/main.js");
 
 test("startPimpSession -> answerPimpQuestion (non-final) -> answerPimpQuestion (final)", async () => {
@@ -637,6 +646,45 @@ test("saveCase stores the selected specialty and listCases returns it; an unknow
   const listed = await registry.listCases({ params: {}, user: owner });
   const appendectomy = listed.cases.find((c) => c.caseDescription === "Appendectomy");
   assert.deepEqual(appendectomy.specialty, { id: generalSurgery.id, name: "General Surgery" });
+});
+
+test("generateScrubPrep attaches verified StatPearls references chosen from real NCBI results", async () => {
+  const owner = await fakeUser();
+  ncbiResponses = {
+    esearch: { esearchresult: { idlist: ["111", "222"] } },
+    esummary: {
+      result: {
+        uids: ["111", "222"],
+        "111": { title: "Splenectomy.", pubdate: "2026 Jan", articleids: [{ idtype: "bookaccession", value: "NBK560824" }] },
+        "222": { title: "Splenic Trauma (Archived).", pubdate: "2020 Jan", articleids: [{ idtype: "bookaccession", value: "NBK999" }] },
+      },
+    },
+  };
+  responseQueue.push({
+    recognized: true,
+    title: "Splenectomy",
+    case_summary: "s",
+    why_operating: ["x"],
+    anatomy: ["x"],
+    operation_overview: ["x"],
+    things_to_watch: ["x"],
+    complications: ["x"],
+    must_know: ["1", "2", "3", "4", "5"],
+    likely_questions: [{ question: "q", answer: "a" }],
+    reference_search_terms: ["splenectomy"],
+  });
+  // The selection call may only return indices; 5 is out of range and must be ignored.
+  responseQueue.push({ selected: [0, 5] });
+
+  const result = await registry.generateScrubPrep({ params: { caseDescription: "Splenectomy for ITP" }, user: owner });
+  assert.deepEqual(result.references, [
+    {
+      title: "Splenectomy",
+      source: "StatPearls, NCBI Bookshelf, 2026",
+      url: "https://www.ncbi.nlm.nih.gov/books/NBK560824/",
+    },
+  ]);
+  ncbiResponses = { esearch: { esearchresult: { idlist: [] } }, esummary: { result: { uids: [] } } };
 });
 
 test("answerPimpQuestion returns a clean error for an unknown session", async () => {

@@ -11,6 +11,18 @@ nonisolated struct QAPair: Codable, Hashable, Identifiable {
     var id: String { question }
 }
 
+/// A verified reference for a prep's operation — a real StatPearls article the backend
+/// found through NCBI and the AI chose from that real list (backend/cloud/scrubPrep/
+/// references.js). Never AI-written; `url` is built from NCBI's own accession.
+/// `nonisolated`: see QAPair's note.
+nonisolated struct PrepReference: Codable, Hashable, Identifiable {
+    let title: String
+    let source: String
+    let url: URL
+
+    var id: URL { url }
+}
+
 /// The structured OR Prep session returned by the `generateScrubPrep` Cloud Function.
 /// Mirrors backend/cloud/scrubPrep/schemas.js's PREP_JSON_SCHEMA exactly.
 /// `nonisolated`: see QAPair's note.
@@ -24,6 +36,9 @@ nonisolated struct ORPrep: Codable, Hashable {
     let complications: [String]
     let mustKnow: [String]
     let likelyQuestions: [QAPair]
+    /// `nil` for preps generated before references existed, or whose lookup failed; empty
+    /// when nothing relevant was found. Either way the UI falls back to a search link.
+    var references: [PrepReference]? = nil
 
     enum CodingKeys: String, CodingKey {
         case title
@@ -35,6 +50,7 @@ nonisolated struct ORPrep: Codable, Hashable {
         case complications
         case mustKnow = "must_know"
         case likelyQuestions = "likely_questions"
+        case references
     }
 
     /// Defensive fallback only — used if a stored ScrubCase's JSON blob ever fails to
