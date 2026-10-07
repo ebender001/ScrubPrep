@@ -28,6 +28,7 @@ struct RootTabView: View {
                 SettingsView()
             }
         }
+        .inAppBrowser()
         // Only ever shown once signed in, so this is exactly "refresh on sign-in and on
         // every subsequent foreground" — the two moments StoreKit's own entitlement state
         // most needs re-checking.
