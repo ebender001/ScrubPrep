@@ -160,6 +160,8 @@ struct PaywallView: View {
                 }
             }
         }
+        // Its own copy: this sheet can't present the root's in-app browser.
+        .inAppBrowser()
         .task {
             // Always refetch, not just when empty — `SubscriptionManager` lives for the
             // whole app process, so "only fetch if empty" would mean a plan that becomes

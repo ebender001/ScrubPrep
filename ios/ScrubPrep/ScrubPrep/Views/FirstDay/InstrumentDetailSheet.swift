@@ -45,6 +45,8 @@ struct InstrumentDetailSheet: View {
             // Clears the drag indicator, which otherwise crowds the first line.
             .padding(.top, 12)
         }
+        // Its own copy: this sheet can't present the root's in-app browser.
+        .inAppBrowser()
         .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         // Opaque — the default translucent sheet at the medium detent lets the list
