@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Learn diagrams and instrument photos are looked up by name at runtime (Resources.getIdentifier),
+     so the resource shrinker can't see they're used. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/incision_*,@drawable/position_*,@drawable/*_clamp,@drawable/*_forceps,@drawable/*_scissors,@drawable/*_retractor,@drawable/*_holder,@drawable/needle_driver,@drawable/scalpel_*,@drawable/self_retaining_*,@drawable/creator_headshot" />
