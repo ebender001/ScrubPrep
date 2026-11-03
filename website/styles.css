@@ -296,16 +296,6 @@ nav.site-nav a:hover {
   color: var(--muted);
 }
 
-.beta-note {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.hero-video .beta-note {
-  color: rgba(255, 255, 255, 0.75);
-}
-
 /* Sections */
 
 section {
@@ -708,4 +698,21 @@ footer.site-footer .wrap {
 .footer-copyright {
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.app-store-badge {
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-store-badge img {
+  height: 48px;
+  width: auto;
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .cta-row .app-store-badge {
+    justify-content: center;
+  }
 }
