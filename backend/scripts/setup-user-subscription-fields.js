@@ -20,6 +20,7 @@ const { loadContext, restRequest } = require("./lib/parseRest");
 
 const FIELDS = {
   hasUsedComplimentaryCase: { type: "Boolean" },
+  hasFreeAccess: { type: "Boolean" },
 };
 
 async function main() {

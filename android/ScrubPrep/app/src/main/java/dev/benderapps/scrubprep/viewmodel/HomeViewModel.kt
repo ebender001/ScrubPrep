@@ -65,6 +65,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private var generationJob: Job? = null
     private var currentRequestId = 0L
     private var hasUsedComplimentaryCase = false
+    private var hasFreeAccess = false
 
     val events: SharedFlow<HomeDestination> get() = _events
     private val _events = MutableSharedFlow<HomeDestination>(extraBufferCapacity = 1)
@@ -225,14 +226,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 if (!hasActiveSubscription) {
                     refreshComplimentaryCaseStatus()
                     if (requestId != currentRequestId) return@launch
-                    if (hasUsedComplimentaryCase) {
+                    // hasFreeAccess is a backend-granted bypass (e.g. the Play review account).
+                    if (hasUsedComplimentaryCase && !hasFreeAccess) {
                         isGenerating = false
                         showPaywall = true
                         return@launch
                     }
                     // No active subscription, and the complimentary case hasn't been used
                     // yet — this generation IS the free case.
-                    isPreparingComplimentaryCase = true
+                    isPreparingComplimentaryCase = !hasFreeAccess
                 }
 
                 val prep = service.generatePrep(trimmed)
@@ -257,7 +259,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     private suspend fun refreshComplimentaryCaseStatus() {
         runCatching { container.parseClient.fetchCurrentUser() }
-            .onSuccess { hasUsedComplimentaryCase = it.optBoolean("hasUsedComplimentaryCase", false) }
+            .onSuccess {
+                hasUsedComplimentaryCase = it.optBoolean("hasUsedComplimentaryCase", false)
+                hasFreeAccess = it.optBoolean("hasFreeAccess", false)
+            }
     }
 
     /**

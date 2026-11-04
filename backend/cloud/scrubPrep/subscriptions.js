@@ -10,11 +10,12 @@
 // scripts/setup-user-subscription-fields.js) rather than a separate Parse class — there's
 // nothing to look up or create, since `request.user` always already exists.
 // registerProtectedFieldsGuard (called once from main.js) installs a beforeSave trigger on
-// `_User` that rejects any non-Master-Key write touching this field, so a signed-in user's
+// `_User` (hasFreeAccess is set only via Master Key/dashboard, e.g. for the Play review
+// account, and bypasses the paywall client-side) that rejects any non-Master-Key write touching this field, so a signed-in user's
 // normal ability to update their own `_User` row (e.g. changing their email) can't be used
 // to reset their own complimentary-case flag.
 
-const PROTECTED_USER_FIELDS = ["hasUsedComplimentaryCase"];
+const PROTECTED_USER_FIELDS = ["hasUsedComplimentaryCase", "hasFreeAccess"];
 
 function registerProtectedFieldsGuard() {
   Parse.Cloud.beforeSave("_User", (request) => {
