@@ -54,7 +54,6 @@ function postJSON(host, path, headers, body) {
  * @param {string} params.userPrompt
  * @param {string} params.schemaName
  * @param {object} params.schema - JSON schema (strict-compatible) for the expected response.
- * @param {number} [params.temperature]
  * @param {typeof postJSON} [params.requestImpl] - injectable for tests.
  * @param {(usage: {prompt_tokens: number, completion_tokens: number, total_tokens: number}, model: string) => (void|Promise<void>)} [params.onUsage] -
  *   called with OpenAI's token usage for this call, once the response is parsed, so a
@@ -70,7 +69,6 @@ async function generateJSON(params) {
   const userPrompt = params.userPrompt;
   const schemaName = params.schemaName;
   const schema = params.schema;
-  const temperature = typeof params.temperature === "number" ? params.temperature : 0.3;
   const requestFn = params.requestImpl || postJSON;
   const onUsage = params.onUsage;
 
@@ -78,7 +76,7 @@ async function generateJSON(params) {
   if (!apiKey) {
     throw new AIClientError("OPENAI_API_KEY is not configured.");
   }
-  const model = process.env.OPENAI_MODEL || "gpt-4.1";
+  const model = process.env.OPENAI_MODEL || "gpt-6-luna";
 
   let response;
   try {
@@ -88,7 +86,6 @@ async function generateJSON(params) {
       { Authorization: "Bearer " + apiKey },
       {
         model: model,
-        temperature: temperature,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

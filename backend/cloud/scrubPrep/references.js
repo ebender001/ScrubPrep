@@ -182,7 +182,6 @@ async function selectRelevant(caseTitle, candidates, generateJSON) {
     userPrompt: `Operation: "${caseTitle}"\n\nArticles:\n${list}`,
     schemaName: "reference_selection",
     schema: SELECTION_SCHEMA,
-    temperature: 0,
   });
   const picked = [];
   for (const index of (raw && Array.isArray(raw.selected) ? raw.selected : [])) {
