@@ -4,6 +4,7 @@
 // https://openai.com/api/pricing/ before relying on totals for real financial decisions
 // (e.g. setting a subscription price), and update the numbers here if they've drifted.
 const MODEL_PRICING_USD_PER_1M_TOKENS = {
+  "gpt-6-luna": { input: 0.1, output: 0.5 },
   "gpt-4.1": { input: 2.0, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, output: 1.6 },
   "gpt-4.1-nano": { input: 0.1, output: 0.4 },
