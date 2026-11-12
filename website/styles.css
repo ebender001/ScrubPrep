@@ -711,7 +711,21 @@ footer.site-footer .wrap {
   display: block;
 }
 
+.play-badge {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* The official badge PNG includes transparent padding; trim it so it matches the App Store badge height. */
+.play-badge img {
+  height: 70px;
+  width: auto;
+  display: block;
+  margin: -11px;
+}
+
 @media (max-width: 640px) {
+  .cta-row .play-badge,
   .cta-row .app-store-badge {
     justify-content: center;
   }
